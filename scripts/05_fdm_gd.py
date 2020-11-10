@@ -53,8 +53,8 @@ def reference_xyz(xyz, keys):
     """
     Gets the xyz coordinates of the reference nodes of a network.
     """
-    return xyz[keys, 2].reshape(-1, 1)
-    # return xyz[keys, :].reshape(-1, 3)
+    # return xyz[keys, 2].reshape(-1, 1)
+    return xyz[keys, :].reshape(-1, 3)
 
 
 def target_xyz(network, keys):
@@ -62,8 +62,8 @@ def target_xyz(network, keys):
     Fabricates the xyz coordinates of the target nodes of a network.
     """
     target_points = [network.node_coordinates(node) for node in keys]
-    return np.array(target_points)[:, 2].reshape((-1, 1))
-    # return np.array(target_points).reshape((-1, 3))
+    # return np.array(target_points)[:, 2].reshape((-1, 1))
+    return np.array(target_points).reshape((-1, 3))
 
 
 def loss(q, targets, edges, xyz, free, fixed, loads):
@@ -73,8 +73,9 @@ def loss(q, targets, edges, xyz, free, fixed, loads):
     xyz = fd(q, edges, xyz, free, fixed, loads)
     zn = reference_xyz(xyz, free)
 
-    return np.sum(np.square(zn - targets))
-
+    # return np.sum(np.abs(zn - targets))  # absolute differences - l1 doesn't work!
+    return np.sum(np.square(zn - targets))  # mse - l2
+    # return np.sum(np.square(1000 * (zn - targets)))
 
 class Loss(ABC):
     """
@@ -162,6 +163,29 @@ class FunicularNetwork(Network):
         """
         return self.nodes_attributes(names=("px", "py", "pz"), values=load, keys=keys)
 
+    def cantilevered_nodes(self):
+        """
+        Gets the keys of all the support-free leaf nodes.
+        """
+        for key in set(self.leaves()) - set(self.supports()):
+            yield key
+
+    def cantilevered_edges(self):
+        """
+        Gets the keys of the edges which are connected only to another edge.
+        """
+        for node in self.cantilevered_nodes():
+            edges = self.connected_edges(node)
+            if len(edges) == 1:
+                yield edges.pop()
+
+    def non_cantilevered_edges(self):
+        """
+        Gets the keys of the edges which are connected to more than one edge.
+        """
+        for edge in set(self.edges()) - set(self.cantilevered_edges()):
+            yield edge
+
 
 if __name__ == "__main__":
 
@@ -172,12 +196,16 @@ if __name__ == "__main__":
 
     gradient = True
     verbose = False
-    iters = 50 # 5000
-    lr = 1.0 # 0.1, 1.0, 2.5, 5.0  # cross validation of lambda! sensitive here
+    iters = 1000 # 5000
+    lr = 0.1 # 0.1, 1.0, 2.5, 5.0  # cross validation of lambda! sensitive here
 
     pz = -0.01795 # netwons - TODO: update as position changes?
 
-    q_0 = -1.5  # -2.5
+    q_0 = -2.5  # -2.5
+    brick_length = 0.123  # m
+    q_0_cantilever = pz / brick_length
+
+    extra_support = None
 
     # ==========================================================================
     # Network
@@ -205,10 +233,17 @@ if __name__ == "__main__":
     arch.supports(fixed)
 
     # set initial q to all nodes - TODO: how to find best initial value?
-    arch.force_densities(q_0)
+    arch.force_densities(q_0, keys=arch.non_cantilevered_edges())
+
+    # set initial q to cantilevered edges
+    arch.force_densities(q_0_cantilever, keys=arch.cantilevered_edges())
 
     # set initial point loads to all nodes of the network
     arch.applied_load([0.0, 0.0, pz])
+
+    # add extra supports
+    if extra_support:
+        arch.supports([extra_support])
 
     # ==========================================================================
     # Force Density - Extract data
@@ -263,6 +298,8 @@ if __name__ == "__main__":
     grad_loss = grad(loss)
 
     if gradient:
+
+        print("Optimization started...")
 
         errors = []
         start_time = time()
@@ -332,4 +369,4 @@ if __name__ == "__main__":
     })
 
     # show le crème
-    # viewer.show()
+    viewer.show()
