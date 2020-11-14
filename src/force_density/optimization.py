@@ -30,9 +30,11 @@ class Optimizer():
         """
         Perform gradient descent
         """
+        network = self.network
+        goals = self.goals
 
-        fd = ForceDensity(self.network)
-        q = np.array(self.network.force_densities())
+        fd = ForceDensity()
+        q = np.array(network.force_densities())
         grad_loss = grad(loss_f)
 
         start_time = time()
@@ -40,7 +42,7 @@ class Optimizer():
 
         for k in range(iters):
 
-            parameters = {"network": self.network, "goals": self.goals, "fd": fd}
+            parameters = {"network": network, "goals": goals, "fd": fd}
 
             error = loss_f(q, parameters)
             q_grad = grad_loss(q, parameters)

@@ -15,14 +15,15 @@ class ForceDensity():
     """
     A callable-object version of the force density method.
     """
-    def __init__(self, network):
-        self.params = [np.array(param) for param in network.fd_parameters()]
+    # def __init__(self, network):
+    #     self.params = [np.array(param) for param in network.fd_parameters()]
 
-    def __call__(self, q):
+    def __call__(self, q, network):
         """
         Do FD directly from information pertaining a network.
         """
-        return force_equilibrium(q, *self.params)
+        params = [np.array(param) for param in network.fd_parameters()]
+        return force_equilibrium(q, *params)
 
 
 def force_equilibrium(q, edges, xyz, free, fixed, loads):

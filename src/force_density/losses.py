@@ -8,6 +8,8 @@ import jax.numpy as np
 from force_density.equilibrium import force_equilibrium
 from force_density.equilibrium import ForceDensity
 
+from compas.datastructures import Network
+
 
 __all__ = ["mean_squared_error", "MeanSquaredError"]
 
@@ -61,6 +63,8 @@ class MeanSquaredErrorGoals(Loss):
     """
     def __init__(self):
         self.params = None
+        self.goals = None
+        self.network = None
 
     def __call__(self, q, params):
         """
@@ -72,23 +76,41 @@ class MeanSquaredErrorGoals(Loss):
         fd = params["fd"]
 
         # do fd
-        xyz = fd(q)
+        xyz = fd(q, network)
 
         # update network
         network = network.copy()
+        # network = Network()
 
-        for i, node in enumerate(network.nodes()):
-            for name, value in zip("xyz", xyz[i, :]):
-                network.node_attribute(key=node, name=name, value=value)
-
-        # network.nodes_xyz(xyz.tolist())
+        # for i, node in enumerate(ref_network.nodes()):
+        #     network.add_node(key=node, x=xyz[i, 0], y=xyz[i, 1], z=xyz[i, 2])
+            # for name, value in zip("xyz", xyz[i, :]):
+                # network.node_attribute(key=node, name=name, value=value)
 
         # compute error
-        error = 0.0
-        for goal in goals.values():
-            difference = np.array(goal.target()) - np.array(goal.reference(network))
-            error += np.sum(np.square(difference))
+        # error = 0.0
+        # for goal in goals.values():
+        #     difference = np.array(goal.target()) - np.array(goal.reference(network))
+        #     error += np.sum(np.square(difference))
 
 
-        return error
-        # return np.sum(np.square(references - targets))
+        # return error
+        references, targets = self.process_goals(xyz, network, goals)
+
+        return np.sum(np.square(references - targets))
+
+    def process_goals(self, xyz, network, goals):
+        """
+        """
+        for i, node in enumerate(network.nodes()):
+           for name, value in zip("xyz", xyz[i, :]):
+               network.node_attribute(key=node, name=name, value=value)
+
+        references = []
+        targets = []
+
+        for key, goal in goals.items():
+            references.append(goal.reference(network))
+            targets.append(goal.target())
+
+        return np.array(references), np.array(targets)

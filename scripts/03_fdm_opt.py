@@ -70,8 +70,8 @@ q_opt = optimizer.solve(lr, iters, loss_f)
 # Update network xyz coordinates
 # ==========================================================================
 
-fd = ForceDensity(network)
-xyz_opt = fd(q_opt)
+fd = ForceDensity()
+xyz_opt = fd(q_opt, network)
 network.nodes_xyz(xyz_opt.tolist())
 
 # ==========================================================================
