@@ -30,11 +30,10 @@ class Optimizer():
         """
         Perform gradient descent
         """
-        grad_loss = grad(loss_f)
-
         q, edges, xyz, free, fixed, loads = self._initialize_data()
         sn = self.goals
 
+        grad_loss = grad(loss_f)
         start_time = time()
 
         print("Optimization started...")

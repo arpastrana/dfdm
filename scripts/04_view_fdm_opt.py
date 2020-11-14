@@ -31,7 +31,7 @@ from force_density.network import CompressionNetwork
 JSON_REF = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
 
-scale = 1.0
+scale = 0.0
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
@@ -44,14 +44,15 @@ reference_network = CompressionNetwork.from_json(JSON_REF)
 # Exaggerate deformation
 # ==========================================================================
 
-for node in network.free_nodes():
+if scale:
+    for node in network.free_nodes():
 
-    reference = network.node_coordinates(node)
-    target = reference_network.node_coordinates(node)
-    deformation_vector = subtract_vectors(target, reference)
-    new_xyz = add_vectors(reference, scale_vector(deformation_vector, scale))
+        reference = network.node_coordinates(node)
+        target = reference_network.node_coordinates(node)
+        deformation_vector = subtract_vectors(reference, target)
+        new_xyz = add_vectors(target, scale_vector(deformation_vector, scale))
 
-    network.node_attributes(key=node, names="xyz", values=new_xyz)
+        network.node_attributes(key=node, names="xyz", values=new_xyz)
 
 # ==========================================================================
 # Viewer
@@ -63,8 +64,8 @@ t_network_viz = reference_network
 
 # blue is target, red is subject
 viewer.add(network_viz, settings={'edges.color': rgb_to_hex((255, 0, 0)),
-                                  'vertices.size': 10,
                                   'edges.width': 2,
+                                  'vertices.size': 10,
                                   'opacity': 0.7,
                                   'vertices.on': False,
                                   'edges.on': True})
@@ -89,7 +90,7 @@ for node in network_viz.supports():
     supports_network.add_node(node, x=x, y=y, z=z)
 
 viewer.add(supports_network, settings={
-    'vertices.size': 10,
+    'vertices.size': 20,
     'vertices.on': True,
     'edges.on': False
 })

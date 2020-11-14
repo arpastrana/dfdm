@@ -54,4 +54,4 @@ class MeanSquaredError(Loss):
 
         # error = 0.0
         # for node_key, goal in goals.items():
-        #     error += np.square(goal.target - goal.reference)
+        #     error += np.square(np.array(goal.target) - np.array(goal.reference))

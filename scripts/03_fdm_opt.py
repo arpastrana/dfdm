@@ -26,6 +26,8 @@ from force_density.network import CompressionNetwork
 
 from force_density.losses import MeanSquaredError
 
+from force_density.goals import PointGoal
+
 from force_density.optimization import Optimizer
 
 # ==========================================================================
@@ -51,7 +53,7 @@ network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
 
 # ==========================================================================
-# Load Network with boundary conditions from JSON
+# Create goals
 # ==========================================================================
 
 goals = [reference_network.node_coordinates(n) for n in network.free_nodes()]
@@ -65,7 +67,7 @@ optimizer = Optimizer(network, goals)
 q_opt, xyz_opt = optimizer.solve(lr, iters, loss_f)
 
 # ==========================================================================
-# Update Network
+# Update network xyz coordinates
 # ==========================================================================
 
 network.nodes_xyz(xyz_opt.tolist())
