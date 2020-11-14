@@ -9,6 +9,7 @@ import jax.numpy as np
 from jax import grad
 
 from force_density.equilibrium import force_equilibrium
+from force_density.equilibrium import ForceDensity
 
 
 __all__ = ["Optimizer"]
@@ -23,33 +24,28 @@ class Optimizer():
         Get the ball rolling.
         """
         self.network = network
-        self.goals = goals
-        self.error_history = []
+        self.goals = {goal.key(): goal for goal in goals}
 
     def solve(self, lr, iters, loss_f, verbose=False):
         """
         Perform gradient descent
         """
-        q, edges, xyz, free, fixed, loads = self._initialize_data()
-        sn = self.goals
 
+        fd = ForceDensity(self.network)
+        q = np.array(self.network.force_densities())
         grad_loss = grad(loss_f)
-        start_time = time()
 
+        start_time = time()
         print("Optimization started...")
 
         for k in range(iters):
 
-            error = loss_f(q, sn, edges, xyz, free, fixed, loads)
+            parameters = {"network": self.network, "goals": self.goals, "fd": fd}
 
-            q_grad = grad_loss(q, sn, edges, xyz, free, fixed, loads)
+            error = loss_f(q, parameters)
+            q_grad = grad_loss(q, parameters)
+
             q = q - lr * q_grad
-
-            # do fd and update network
-            xyz = force_equilibrium(q, edges, xyz, free, fixed, loads)
-
-            # store error
-            self.error_history.append(error)
 
             if verbose:
                 print("Iteration: {} \t Loss: {}".format(k, error))
@@ -58,31 +54,4 @@ class Optimizer():
         print("Output error in {} iterations: {}".format(iters, error))
         print("Elapsed time: {} seconds".format(time() - start_time))
 
-        return q, xyz
-
-    def _initialize_data(self):
-        """
-        Prepare the initial data to carry out the force density method.
-        """
-        # node key: index mapping
-        k_i = self.network.key_index()
-
-        # find supports
-        fixed = [k_i[key] for key in self.network.supports()]
-
-        # find free nodes
-        free = [k_i[key] for key in self.network.free_nodes()]
-
-        # edges
-        edges = [(k_i[u], k_i[v]) for u, v in self.network.edges()]
-
-        # node coordinates
-        xyz = np.array(self.network.nodes_xyz())
-
-        # force densities
-        q = np.array(self.network.force_densities())
-
-        # forces
-        loads = np.array(self.network.applied_load())
-
-        return q, edges, xyz, free, fixed, loads
+        return q

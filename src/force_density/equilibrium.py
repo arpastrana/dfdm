@@ -8,7 +8,21 @@ from jax.ops import index
 from compas.numerical import connectivity_matrix
 
 
-__all__ = ["force_equilibrium"]
+__all__ = ["ForceDensity", "force_equilibrium"]
+
+
+class ForceDensity():
+    """
+    A callable-object version of the force density method.
+    """
+    def __init__(self, network):
+        self.params = [np.array(param) for param in network.fd_parameters()]
+
+    def __call__(self, q):
+        """
+        Do FD directly from information pertaining a network.
+        """
+        return force_equilibrium(q, *self.params)
 
 
 def force_equilibrium(q, edges, xyz, free, fixed, loads):

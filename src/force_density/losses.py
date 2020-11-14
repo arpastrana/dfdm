@@ -6,6 +6,7 @@ from abc import abstractmethod
 import jax.numpy as np
 
 from force_density.equilibrium import force_equilibrium
+from force_density.equilibrium import ForceDensity
 
 
 __all__ = ["mean_squared_error", "MeanSquaredError"]
@@ -40,6 +41,7 @@ class Loss(ABC):
         """
         return
 
+
 class MeanSquaredError(Loss):
     """
     The mean squared error loss
@@ -52,6 +54,41 @@ class MeanSquaredError(Loss):
         zn = reference_xyz(xyz, free)
         return np.sum(np.square(zn - targets))  # what if np.mean instead?
 
-        # error = 0.0
-        # for node_key, goal in goals.items():
-        #     error += np.square(np.array(goal.target) - np.array(goal.reference))
+
+class MeanSquaredErrorGoals(Loss):
+    """
+    The mean squared error loss
+    """
+    def __init__(self):
+        self.params = None
+
+    def __call__(self, q, params):
+        """
+        Execute this.
+        """
+        # access stuff
+        network = params["network"]
+        goals = params["goals"]
+        fd = params["fd"]
+
+        # do fd
+        xyz = fd(q)
+
+        # update network
+        network = network.copy()
+
+        for i, node in enumerate(network.nodes()):
+            for name, value in zip("xyz", xyz[i, :]):
+                network.node_attribute(key=node, name=name, value=value)
+
+        # network.nodes_xyz(xyz.tolist())
+
+        # compute error
+        error = 0.0
+        for goal in goals.values():
+            difference = np.array(goal.target()) - np.array(goal.reference(network))
+            error += np.sum(np.square(difference))
+
+
+        return error
+        # return np.sum(np.square(references - targets))

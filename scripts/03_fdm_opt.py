@@ -7,9 +7,6 @@ Equilibrate the force network using the traditional force density method.
 # filepath stuff
 import os
 
-# numpy
-import jax.numpy as np
-
 # visualization matters
 from compas.datastructures import Network
 from compas.geometry import Line
@@ -20,11 +17,12 @@ from compas_viewers.objectviewer import ObjectViewer
 # force equilibrium
 from force_density import JSON
 
-from force_density.equilibrium import force_equilibrium
+from force_density.equilibrium import ForceDensity
 
 from force_density.network import CompressionNetwork
 
 from force_density.losses import MeanSquaredError
+from force_density.losses import MeanSquaredErrorGoals
 
 from force_density.goals import PointGoal
 
@@ -40,10 +38,8 @@ JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
 export_json = True
 
 verbose = False
-iters = 1000 # 1000
+iters = 10 # 1000
 lr = 0.1 # 0.1, 1.0, 2.5, 5.0  # cross validation of lambda! sensitive here
-
-loss_f = MeanSquaredError()
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
@@ -52,24 +48,30 @@ loss_f = MeanSquaredError()
 network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
 
+loss_f = MeanSquaredErrorGoals()
+
 # ==========================================================================
 # Create goals
 # ==========================================================================
 
-goals = [reference_network.node_coordinates(n) for n in network.free_nodes()]
-goals = np.array(goals)
+goals = []
+for node in network.free_nodes():
+    target_xyz = reference_network.node_coordinates(node)
+    goals.append(PointGoal(node, target_xyz))
 
 # ==========================================================================
 # Optimization
 # ==========================================================================
 
 optimizer = Optimizer(network, goals)
-q_opt, xyz_opt = optimizer.solve(lr, iters, loss_f)
+q_opt = optimizer.solve(lr, iters, loss_f)
 
 # ==========================================================================
 # Update network xyz coordinates
 # ==========================================================================
 
+fd = ForceDensity(network)
+xyz_opt = fd(q_opt)
 network.nodes_xyz(xyz_opt.tolist())
 
 # ==========================================================================
