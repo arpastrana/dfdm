@@ -3,6 +3,7 @@
 """
 Visualize an optimized network.
 """
+from math import fabs
 
 # filepath stuff
 import os
@@ -14,6 +15,7 @@ from compas.geometry import scale_vector
 from compas.geometry import add_vectors
 from compas.geometry import normalize_vector
 from compas.geometry import subtract_vectors
+from compas.geometry import distance_point_point
 from compas.utilities import rgb_to_hex
 
 from compas_viewers.objectviewer import ObjectViewer
@@ -39,6 +41,23 @@ scale = 0.0
 
 network = CompressionNetwork.from_json(JSON_IN)
 reference_network = CompressionNetwork.from_json(JSON_REF)
+
+# compare lengths
+error = 0.0
+for edge in network.edges():
+
+    length = network.edge_length(*edge)
+    target_length = reference_network.edge_length(*edge)
+    difference = fabs(length - target_length)
+    error_length = (difference)**2
+
+    relative_difference = difference / target_length
+    if relative_difference > 0.01:
+        print(f"Edge {edge} relative difference: {round(100 * relative_difference, 2)} %")
+
+    error += error_length
+
+print(f"Squared error: {error}")
 
 # ==========================================================================
 # Exaggerate deformation
@@ -78,10 +97,13 @@ viewer.add(t_network_viz, settings={'edges.color': rgb_to_hex((0, 0, 255)),
                                     'edges.on': True})
 
 # draw lines betwen subject and target nodes
+distance_error = 0.0
 for node in network_viz.nodes():
     pt = network_viz.node_coordinates(node)
     target_pt = t_network_viz.node_coordinates(node)
+    distance_error += distance_point_point(pt, target_pt)
     viewer.add(Line(target_pt, pt))
+print(f"Nodes distance error: {distance_error}")
 
 # draw supports
 supports_network = Network()

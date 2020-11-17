@@ -10,26 +10,13 @@ from force_density.equilibrium import ForceDensity
 
 from compas.datastructures import Network
 
+import line_profiler
+import atexit
 
-__all__ = ["mean_squared_error", "MeanSquaredError"]
+profile = line_profiler.LineProfiler()
+atexit.register(profile.print_stats)
 
-
-def reference_xyz(xyz, keys):
-    """
-    Gets the xyz coordinates of the reference nodes of a network.
-    """
-    # return xyz[keys, 2].reshape(-1, 1)
-    return xyz[keys, :].reshape(-1, 3)
-
-
-def mean_squared_error(q, targets, edges, xyz, free, fixed, loads):
-    """
-    A toy loss function.
-    """
-    xyz = force_equilibrium(q, edges, xyz, free, fixed, loads)
-    zn = reference_xyz(xyz, free)
-
-    return np.sum(np.square(zn - targets))  # mse - l2
+__all__ = ["SquaredError"]
 
 
 class Loss(ABC):
@@ -48,24 +35,18 @@ class MeanSquaredError(Loss):
     """
     The mean squared error loss
     """
-    def __call__(self, q, targets, edges, xyz, free, fixed, loads):
+    def __call__(self, q, params):
         """
         Execute this.
         """
-        xyz = force_equilibrium(q, edges, xyz, free, fixed, loads)
-        zn = reference_xyz(xyz, free)
-        return np.sum(np.square(zn - targets))  # what if np.mean instead?
+        xyz = force_equilibrium(q, *params)
+        references = xyz[free, :]
+        return np.sum(np.square(references - targets))  # what if np.mean instead?
 
-
-class MeanSquaredErrorGoals(Loss):
+class SquaredError(Loss):
     """
     The mean squared error loss
     """
-    def __init__(self):
-        self.params = None
-        self.goals = None
-        self.network = None
-
     def __call__(self, q, params):
         """
         Execute this.
@@ -75,42 +56,68 @@ class MeanSquaredErrorGoals(Loss):
         goals = params["goals"]
         fd = params["fd"]
 
+        node_goals = goals["node"]
+        edge_goals = goals["edge"]
+
         # do fd
-        xyz = fd(q, network)
+        fd_state = fd(q, network)
+        xyz = fd_state["xyz"]
+        lengths = fd_state["lengths"]
+        k_i = network.key_index()
 
-        # update network
-        network = network.copy()
-        # network = Network()
+        error = 0.0
+        # do node goals
+        for goal in node_goals:
+            y = np.array(goal.target())
+            x = xyz[k_i[goal.key()], :]
+            error += self.penalize(x, y)
 
-        # for i, node in enumerate(ref_network.nodes()):
-        #     network.add_node(key=node, x=xyz[i, 0], y=xyz[i, 1], z=xyz[i, 2])
-            # for name, value in zip("xyz", xyz[i, :]):
-                # network.node_attribute(key=node, name=name, value=value)
+        # do edge goals
+        for goal in edge_goals:
+            y = np.array(goal.target())
+            x = lengths[goal.key()]
+            error += self.penalize(x, y)
 
-        # compute error
-        # error = 0.0
-        # for goal in goals.values():
-        #     difference = np.array(goal.target()) - np.array(goal.reference(network))
-        #     error += np.sum(np.square(difference))
+        return error
 
-
-        # return error
-        references, targets = self.process_goals(xyz, network, goals)
-
-        return np.sum(np.square(references - targets))
-
-    def process_goals(self, xyz, network, goals):
+    def penalize(self, x, y):
         """
         """
-        for i, node in enumerate(network.nodes()):
-           for name, value in zip("xyz", xyz[i, :]):
-               network.node_attribute(key=node, name=name, value=value)
+        return np.sum(np.square(x - y))
 
-        references = []
-        targets = []
 
-        for key, goal in goals.items():
-            references.append(goal.reference(network))
-            targets.append(goal.target())
 
-        return np.array(references), np.array(targets)
+# class MeanSquaredErrorGoals(Loss):
+#     """
+#     The mean squared error loss
+#     """
+#     def __call__(self, q, params):
+#         """
+#         Execute this.
+#         """
+#         # access stuff
+#         network = params["network"]
+#         goals = params["goals"]
+#         fd = params["fd"]
+#
+#         # do fd
+#         # network.fd(q)
+#         # internally it should update all dictionary states
+#         xyz = fd(q, network)
+#         network = network.copy()
+#         network.nodes_xyz(xyz)
+
+#         references, targets = self.process_goals(network, goals)
+#         return np.sum(np.square(references - targets))
+
+#     def process_goals(self, network, goals):
+#         """
+#         """
+#         references = []
+#         targets = []
+
+#         for key, goal in goals.items():
+#             references.append(goal.reference(network))
+#             targets.append(goal.target())
+
+#         return np.array(references), np.array(targets)

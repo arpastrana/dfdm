@@ -68,6 +68,7 @@ loads = np.array(network.applied_load())
 # ==========================================================================
 
 xyz = force_equilibrium(q, edges, xyz, free, fixed, loads)
+xyz = xyz[0]
 
 # ==========================================================================
 # Update Geometry

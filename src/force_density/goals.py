@@ -54,12 +54,42 @@ class PointGoal(Goal):
         """
         return self._target
 
-    def reference(self, network):
+    def reference(self, xyz):
         """
         The current xyz coordinates of the node in a network.
         """
-        return network.node_coordinates(self.key())
+        # return network.node_coordinates(self.key())
+        return xyz[self.key()]
 
+class LineGoal(Goal):
+    """
+    Make an edge of a network to reach certain length.
+    """
+    def __init__(self, key, target):
+        """
+        Let's get rollin'.
+        """
+        self._key = key
+        self._target = target
+
+    def key(self):
+        """
+        The key of a node in a network.
+        """
+        return self._key
+
+    def target(self):
+        """
+        The xyz coordinates to reach.
+        """
+        return self._target
+
+    def reference(self):
+        """
+        The current xyz coordinates of the node in a network.
+        """
+        # return network.node_coordinates(self.key())
+        return
 
 if __name__ == "__main__":
 
