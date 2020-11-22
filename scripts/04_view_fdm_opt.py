@@ -13,7 +13,7 @@ from compas.datastructures import Network
 from compas.geometry import Line
 from compas.geometry import scale_vector
 from compas.geometry import add_vectors
-from compas.geometry import normalize_vector
+from compas.geometry import length_vector
 from compas.geometry import subtract_vectors
 from compas.geometry import distance_point_point
 from compas.utilities import rgb_to_hex
@@ -30,10 +30,10 @@ from force_density.network import CompressionNetwork
 # Initial parameters
 # ==========================================================================
 
-JSON_REF = os.path.abspath(os.path.join(JSON, "compression_network.json"))
+JSON_REF = os.path.abspath(os.path.join(JSON, "arch_state_17.json"))
 JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
 
-scale = 0.0
+scale = 5.0
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
@@ -59,19 +59,6 @@ for edge in network.edges():
 
 print(f"Squared error: {error}")
 
-# ==========================================================================
-# Exaggerate deformation
-# ==========================================================================
-
-if scale:
-    for node in network.free_nodes():
-
-        reference = network.node_coordinates(node)
-        target = reference_network.node_coordinates(node)
-        deformation_vector = subtract_vectors(reference, target)
-        new_xyz = add_vectors(target, scale_vector(deformation_vector, scale))
-
-        network.node_attributes(key=node, names="xyz", values=new_xyz)
 
 # ==========================================================================
 # Viewer
@@ -99,10 +86,21 @@ viewer.add(t_network_viz, settings={'edges.color': rgb_to_hex((0, 0, 255)),
 # draw lines betwen subject and target nodes
 distance_error = 0.0
 for node in network_viz.nodes():
+
     pt = network_viz.node_coordinates(node)
     target_pt = t_network_viz.node_coordinates(node)
     distance_error += distance_point_point(pt, target_pt)
+
     viewer.add(Line(target_pt, pt))
+
+    residual = network_viz.node_attributes(node, names=["rx", "ry", "rz"])
+
+    if length_vector(residual) < 0.001:
+        continue
+
+    residual_line = Line(pt, add_vectors(pt, scale_vector(residual, scale)))
+    viewer.add(residual_line)
+
 print(f"Nodes distance error: {distance_error}")
 
 # draw supports

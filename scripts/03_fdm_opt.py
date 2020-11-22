@@ -26,7 +26,6 @@ from force_density.network import CompressionNetwork
 
 from force_density.losses import SquaredError
 
-from force_density.goals import PointGoal
 from force_density.goals import LineGoal
 
 from force_density.optimization import Optimizer
@@ -39,6 +38,7 @@ JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
 
 export_json = True
+view = False
 
 ub = -0.01795 / 0.123  # point load / brick length
 method = "SLSQP"
@@ -62,10 +62,6 @@ loss_f = SquaredError()
 node_goals = []
 edge_goals = []
 
-# for node in network.free_nodes():
-#     target_xyz = reference_network.node_coordinates(node)
-#     node_goals.append(PointGoal(node, target_xyz))
-
 for idx, edge in enumerate(network.edges()):
     target_length = reference_network.edge_length(*edge)
     edge_goals.append(LineGoal(idx, target_length))
@@ -78,17 +74,32 @@ optimizer = Optimizer(network, node_goals, edge_goals)
 q_opt = optimizer.solve_scipy(loss_f, ub, method, maxiter, tol)
 
 # ==========================================================================
-# Update network xyz coordinates
+# Force Density
 # ==========================================================================
 
 fd = ForceDensity()
 fd_opt = fd(q_opt, network)
-xyz_opt = fd_opt["xyz"]
-network.nodes_xyz(xyz_opt.tolist())
 
-print(q_opt)
+# ==========================================================================
+# Update Geometry
+# ==========================================================================
+
+xyz_opt = fd_opt["xyz"].tolist()
+length_opt = fd_opt["lengths"].tolist()
+res_opt = fd_opt["residuals"].tolist()
+
+# update xyz coordinates on nodes
+network.nodes_xyz(xyz_opt)
+
+# update q values and lengths on edges
 for idx, edge in enumerate(network.edges()):
     network.edge_attribute(edge, name="q", value=q_opt[idx])
+    network.edge_attribute(edge, name="length", value=length_opt[idx])
+
+# update residuals on nodes
+for idx, node in enumerate(network.nodes()):
+    for name, value in zip(["rx", "ry", "rz"], res_opt[idx]):
+        network.node_attribute(node, name=name, value=value)
 
 # ==========================================================================
 # Export new JSON file for further operations
@@ -102,49 +113,51 @@ if export_json:
 # Viewer
 # ==========================================================================
 
-viewer = ObjectViewer()
-network_viz = network
-t_network_viz = reference_network
+if view:
 
-# blue is target, red is subject
-viewer.add(network_viz, settings={'edges.color': rgb_to_hex((255, 0, 0)),
-                                  'vertices.size': 10,
-                                  'edges.width': 2,
-                                  'opacity': 0.7,
-                                  'vertices.on': False,
-                                  'edges.on': True})
+    viewer = ObjectViewer()
+    network_viz = network
+    t_network_viz = reference_network
 
-viewer.add(t_network_viz, settings={'edges.color': rgb_to_hex((0, 0, 255)),
-                                    'edges.width': 1,
-                                    'opacity': 0.5,
-                                    'vertices.size': 10,
-                                    'vertices.on': False,
-                                    'edges.on': True})
+    # blue is target, red is subject
+    viewer.add(network_viz, settings={'edges.color': rgb_to_hex((255, 0, 0)),
+                                      'vertices.size': 10,
+                                      'edges.width': 2,
+                                      'opacity': 0.7,
+                                      'vertices.on': False,
+                                      'edges.on': True})
 
-# draw lines betwen subject and target nodes
-residuals = fd_opt["residuals"].tolist()
+    viewer.add(t_network_viz, settings={'edges.color': rgb_to_hex((0, 0, 255)),
+                                        'edges.width': 1,
+                                        'opacity': 0.5,
+                                        'vertices.size': 10,
+                                        'vertices.on': False,
+                                        'edges.on': True})
 
-for i, node in enumerate(network_viz.nodes()):
-    pt = network_viz.node_coordinates(node)
-    target_pt = t_network_viz.node_coordinates(node)
-    viewer.add(Line(target_pt, pt))
+    # draw lines betwen subject and target nodes
+    for node in network_viz.nodes():
 
-    residual = residuals[i]
-    if length_vector(residual) < 0.001:
-        continue
+        pt = network_viz.node_coordinates(node)
+        target_pt = t_network_viz.node_coordinates(node)
+        viewer.add(Line(target_pt, pt))
 
-    residual_line = Line(pt, add_vectors(pt, scale_vector(residual, scale)))
-    viewer.add(residual_line)
+        residual = network_viz.node_attributes(node, names=["rx", "ry", "rz"])
 
-# draw supports
-supports_network = Network()
-for node in network_viz.supports():
-    x, y, z = network_viz.node_coordinates(node)
-    supports_network.add_node(node, x=x, y=y, z=z)
+        if length_vector(residual) < 0.001:
+            continue
 
-viewer.add(supports_network, settings={'vertices.size': 10,
-                                       'vertices.on': True,
-                                       'edges.on': False})
+        residual_line = Line(pt, add_vectors(pt, scale_vector(residual, scale)))
+        viewer.add(residual_line)
 
-# show le crème
-viewer.show()
+    # draw supports
+    supports_network = Network()
+    for node in network_viz.supports():
+        x, y, z = network_viz.node_coordinates(node)
+        supports_network.add_node(node, x=x, y=y, z=z)
+
+    viewer.add(supports_network, settings={'vertices.size': 10,
+                                           'vertices.on': True,
+                                           'edges.on': False})
+
+    # show le crème
+    viewer.show()
