@@ -73,11 +73,41 @@ class CompressionNetwork(Network):
         """
         return self.edges_attribute(name="q", value=value, keys=keys)
 
+    def force_density(self, key, value=None):
+        """
+        Gets or sets the force density on a single edge.
+        """
+        return self.edge_attribute(name="q", value=value, key=key)
+
     def applied_load(self, load=None, keys=None):
         """
         Gets or sets a load to the nodes of the network.
         """
         return self.nodes_attributes(names=("px", "py", "pz"), values=load, keys=keys)
+
+    def residual_forces(self, keys=None):
+        """
+        Gets the residual forces of the nodes of the network.
+        """
+        return self.nodes_attributes(names=("rx", "ry", "rz"), keys=keys)
+
+    def residual_force(self, key):
+        """
+        Gets the residual force of a single node of the network.
+        """
+        return self.node_attributes(key=key, names=("rx", "ry", "rz"))
+
+    def edge_forces(self, keys=None):
+        """
+        Gets the forces at the edges of the network.
+        """
+        return self.edges_attribute(keys=keys, name="force")
+
+    def edge_force(self, key):
+        """
+        Gets the forces at a single edge the network.
+        """
+        return self.edge_attribute(key=key, name="force")
 
     def cantilevered_nodes(self):
         """
