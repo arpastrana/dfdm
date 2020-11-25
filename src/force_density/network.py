@@ -5,7 +5,6 @@ A catalogue of force networks.
 #!/usr/bin/env python3
 
 from compas.datastructures import Network
-from compas.numerical import connectivity_matrix
 
 
 __all__ = ["CompressionNetwork"]
@@ -67,12 +66,6 @@ class CompressionNetwork(Network):
             return self.nodes_where({"is_support": True})
 
         return self.nodes_attribute(name="is_support", value=True, keys=keys)
-
-    def connectivity_matrix(self, rtype="csr"):
-        """
-        The connectivity matrix of the edges of the network.
-        """
-        return connectivity_matrix(self.edges(), rtype)
 
     def force_densities(self, value=None, keys=None):
         """
