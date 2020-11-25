@@ -47,7 +47,7 @@ def force_equilibrium(q, edges, xyz, free, fixed, loads):
 
     xyz = index_update(xyz, index[free, :], x)
     lengths = np.linalg.norm(c_matrix @ xyz, axis=1)
-    forces = q * lengths
+    forces = q * lengths  # there is a bug in forces
     residuals = loads - c_matrix_t @ q_matrix @ c_matrix @ xyz
 
     return xyz, lengths, forces, residuals
