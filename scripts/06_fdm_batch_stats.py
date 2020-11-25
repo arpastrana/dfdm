@@ -90,18 +90,18 @@ for node in reference_network.supports():
 # ==========================================================================
 
 # CSV column headers
-nodes_columns = ["key",
-                 "xref",
-                 "yref",
-                 "zref",
-                 "x",
-                 "y",
-                 "z",
-                 "distance",
-                 "rx",
-                 "ry",
-                 "rz",
-                 "rforce"]
+nodes_columns = ["node_key",
+                 "xref (m)",
+                 "yref (m)",
+                 "zref (m)",
+                 "x (m)",
+                 "y (m)",
+                 "z (m)",
+                 "distance (m)",
+                 "rx (kN)",
+                 "ry (kN)",
+                 "rz (kN)",
+                 "rforce (kN)"]
 
 # data collector
 nodes_data = []
@@ -123,26 +123,26 @@ for node in sorted(list(reference_network.nodes())):
     r_force = length_vector(r_vector)
 
     # parse nodal ref coordinates
-    for name, coord in zip(["{}ref".format(a) for a in "xyz"], xyz_ref):
+    for name, coord in zip(["{}ref (m)".format(a) for a in "xyz"], xyz_ref):
         node_data[name] = coord
 
     # parse nodal coordinates
-    for name, coord in zip("xyz", xyz):
+    for name, coord in zip(["{} (m)".format(a) for a in "xyz"], xyz):
         node_data[name] = coord
 
     # parse distance between nodes
-    node_data["distance"] = distance
+    node_data["distance (m)"] = distance
 
     # parse residuals
-    for name, comp in zip(["rx", "ry", "rz"], r_vector):
+    for name, comp in zip(["rx (kN)", "ry (kN)", "rz (kN)"], r_vector):
         node_data[name] = comp
 
-    node_data["rforce"] = r_force
+    node_data["rforce (kN)"] = r_force
 
     # parse node key
     # shift nodes back for compatibility with 3rd-party numbering
     node = int(node - node_shift_back)
-    node_data["key"] = node
+    node_data["node_key"] = node
 
     # round stuff
     for key, value in node_data.items():
@@ -159,10 +159,10 @@ for node in sorted(list(reference_network.nodes())):
 # CSV column headers
 edges_columns = ["u_key",
                  "v_key",
-                 "force",
-                 "length",
-                 "length_ref",
-                 "length_diff"]
+                 "force (kN)",
+                 "length (m)",
+                 "length_ref (m)",
+                 "length_diff (%)"]
 
 # data collector
 edges_data = []
@@ -175,19 +175,19 @@ for edge in sorted(list(reference_network.edges()), key=lambda x: x[0]):
 
     # fetch length
     length = network.edge_length(*edge)
-    edge_data["length"] = length
+    edge_data["length (m)"] = length
 
     # fetch force
     q = network.force_density(edge)
-    edge_data["force"] = q * length
+    edge_data["force (kN)"] = q * length
 
     # fetch reference length
     length_ref = reference_network.edge_length(*edge)
-    edge_data["length_ref"] = length_ref
+    edge_data["length_ref (m)"] = length_ref
 
     # calculate length difference
     length_diff = fabs(length - length_ref) / length_ref
-    edge_data["length_diff"] = length_diff
+    edge_data["length_diff (%)"] = length_diff * 100.0  # *100 to make it %
 
     # parse edge key
     # shift back edge numbering
