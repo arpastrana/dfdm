@@ -27,11 +27,11 @@ from force_density.network import CompressionNetwork
 
 
 # ==========================================================================
-# Initial parameters
+# Initial parameter
 # ==========================================================================
 
 JSON_REF = os.path.abspath(os.path.join(JSON, "arch_state_17.json"))
-JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
+JSON_IN = os.path.abspath(os.path.join(JSON, "arch_state_17/33/compression_network_opt.json"))
 
 scale = 5.0
 
