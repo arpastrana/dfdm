@@ -1,33 +1,27 @@
-#!/usr/bin/env python3
-
 """
-Equilibrate the force network using the traditional force density method.
+Solve a constrained force density problem using gradient based optimization.
 """
 
 # filepath stuff
 import os
 
 # visualization matters
+from compas.colors import Color
 from compas.datastructures import Network
 from compas.geometry import Line
+from compas.geometry import Point
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
 from compas.geometry import length_vector
-from compas.utilities import rgb_to_hex
 
-from compas_viewers.objectviewer import ObjectViewer
+from compas_view2.app import App
 
 # force equilibrium
 from force_density import JSON
-
 from force_density.equilibrium import ForceDensity
-
 from force_density.network import CompressionNetwork
-
 from force_density.losses import SquaredError
-
-from force_density.goals import LineGoal
-
+from force_density.goals import LengthGoal
 from force_density.optimization import Optimizer
 
 # ==========================================================================
@@ -35,16 +29,10 @@ from force_density.optimization import Optimizer
 # ==========================================================================
 
 JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
-JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt.json"))
+JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt_2.json"))
 
 export_json = True
-view = False
-
-ub = -0.01795 / 0.123  # point load / brick length
-method = "SLSQP"
-maxiter = 200
-tol = 1e-9
-scale = 5
+view = True
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
@@ -53,35 +41,34 @@ scale = 5
 network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
 
-loss_f = SquaredError()
-
 # ==========================================================================
 # Create goals
 # ==========================================================================
 
-node_goals = []
 edge_goals = []
-
 for idx, edge in enumerate(network.edges()):
     target_length = reference_network.edge_length(*edge)
-    edge_goals.append(LineGoal(idx, target_length))
+    edge_goals.append(LengthGoal(idx, target_length))  # length goal
 
 # ==========================================================================
 # Optimization
 # ==========================================================================
 
-optimizer = Optimizer(network, node_goals, edge_goals)
-q_opt = optimizer.solve_scipy(loss_f, ub, method, maxiter, tol)
+optimizer = Optimizer(network, node_goals=[], edge_goals=edge_goals)
+q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
+                              ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
+                              method="SLSQP",
+                              maxiter=200,
+                              tol=1e-9)
 
 # ==========================================================================
-# Force Density
+# Re-run force density to update model
 # ==========================================================================
 
-fd = ForceDensity()
-fd_opt = fd(q_opt, network)
+fd_opt = ForceDensity()(q_opt, network)
 
 # ==========================================================================
-# Update Geometry
+# Update geometry
 # ==========================================================================
 
 xyz_opt = fd_opt["xyz"].tolist()
@@ -114,50 +101,40 @@ if export_json:
 # ==========================================================================
 
 if view:
+    viewer = App(width=1600, height=900)
 
-    viewer = ObjectViewer()
-    network_viz = network
-    t_network_viz = reference_network
+    # equilibrated arch
+    viewer.add(network,
+               show_vertices=True,
+               pointsize=12.0,
+               show_edges=True,
+               linecolor=Color.teal(),
+               linewidth=4.0)
 
-    # blue is target, red is subject
-    viewer.add(network_viz, settings={'edges.color': rgb_to_hex((255, 0, 0)),
-                                      'vertices.size': 10,
-                                      'edges.width': 2,
-                                      'opacity': 0.7,
-                                      'vertices.on': False,
-                                      'edges.on': True})
-
-    viewer.add(t_network_viz, settings={'edges.color': rgb_to_hex((0, 0, 255)),
-                                        'edges.width': 1,
-                                        'opacity': 0.5,
-                                        'vertices.size': 10,
-                                        'vertices.on': False,
-                                        'edges.on': True})
+    # reference arch
+    viewer.add(reference_network, show_points=False, linewidth=4.0)
 
     # draw lines betwen subject and target nodes
-    for node in network_viz.nodes():
+    for node in network.nodes():
 
-        pt = network_viz.node_coordinates(node)
-        target_pt = t_network_viz.node_coordinates(node)
+        pt = network.node_coordinates(node)
+        target_pt = reference_network.node_coordinates(node)
         viewer.add(Line(target_pt, pt))
 
-        residual = network_viz.node_attributes(node, names=["rx", "ry", "rz"])
+        # draw reaction forces
+        residual = network.node_attributes(node, names=["rx", "ry", "rz"])
 
         if length_vector(residual) < 0.001:
             continue
 
-        residual_line = Line(pt, add_vectors(pt, scale_vector(residual, scale)))
-        viewer.add(residual_line)
+        residual_line = Line(pt, add_vectors(pt, residual))
+        viewer.add(residual_line, color=Color.purple())
 
     # draw supports
-    supports_network = Network()
-    for node in network_viz.supports():
-        x, y, z = network_viz.node_coordinates(node)
-        supports_network.add_node(node, x=x, y=y, z=z)
+    for node in network.supports():
+        x, y, z = network.node_coordinates(node)
+        viewer.add(Point(x, y, z), color=Color.green(), size=20)
 
-    viewer.add(supports_network, settings={'vertices.size': 10,
-                                           'vertices.on': True,
-                                           'edges.on': False})
 
     # show le crème
     viewer.show()

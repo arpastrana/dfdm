@@ -10,11 +10,11 @@ from force_density.equilibrium import ForceDensity
 
 from compas.datastructures import Network
 
-import line_profiler
-import atexit
+# import line_profiler
+# import atexit
 
-profile = line_profiler.LineProfiler()
-atexit.register(profile.print_stats)
+# profile = line_profiler.LineProfiler()
+# atexit.register(profile.print_stats)
 
 __all__ = ["SquaredError"]
 

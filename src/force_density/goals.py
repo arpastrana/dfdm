@@ -1,14 +1,12 @@
-#!/usr/bin/env python3
 """
 A bunch of goals to solve
 """
 
-from abc import ABC
 from abc import abstractmethod
 from abc import abstractproperty
 
 
-class Goal(ABC):
+class Goal:
     """
     An abstract goal.
     """
@@ -61,7 +59,8 @@ class PointGoal(Goal):
         # return network.node_coordinates(self.key())
         return xyz[self.key()]
 
-class LineGoal(Goal):
+
+class LengthGoal(Goal):
     """
     Make an edge of a network to reach certain length.
     """
@@ -90,6 +89,7 @@ class LineGoal(Goal):
         """
         # return network.node_coordinates(self.key())
         return
+
 
 if __name__ == "__main__":
 
