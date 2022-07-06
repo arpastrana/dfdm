@@ -1,6 +1,7 @@
-# JAX FDM
+# dFDM
 
-An automatically differentiable and GPU-capable version of the Force Density Method.
+A differentiable implementation of the Force Density Method.
+This library is tailored to the solution of constrained form-finding problems.
 
 ![](fdm_header.png)
 
@@ -13,17 +14,22 @@ conda create --name fdm
 conda activate fdm
 ```
 
-Then, install `compas` and `compas_view`.
+Then, install `compas` and `compas_view`:
 
 ```bash
-conda install compas compas_view2
+conda install compas
+conda install compas_view2
 ```
 
-Finally, install `JAX` using its [official documentation](https://github.com/google/jax#installation). If you want to install it for CPU support on MacOS or Linux, do:
+Finally, install `autograd`, our automatic differentiation backend:
 
 ```bash
-pip install --upgrade pip
-pip install --upgrade "jax[cpu]"
+pip install autograd
 ```
 
 Enjoy 🍸!
+
+
+## License
+
+MIT
