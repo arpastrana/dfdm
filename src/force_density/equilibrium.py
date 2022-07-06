@@ -21,38 +21,9 @@ class ForceDensity:
         return fd_state
 
 
-def force_equilibrium_2(q, edges, xyz, free, fixed, loads):
-    """
-    JAX-based force density method.
-    """
-    c_matrix = connectivity_matrix(edges, "list")
-    c_matrix = np.array(c_matrix)
-    c_matrix_t = np.transpose(c_matrix)
-
-    c_free = c_matrix[:, free]
-    c_fixed = c_matrix[:, fixed]
-    c_free_t = np.transpose(c_free)
-
-    q_matrix = np.diag(q)
-
-    A = c_free_t @ q_matrix @ c_free
-    b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz[fixed, :]
-    x = np.linalg.solve(A, b)
-
-    xyz[free, :] = x
-    # xyz = index_update(xyz, index[free, :], x)
-    xyz = xyz.at[free, :].set(x)
-
-    lengths = anp.linalg.norm(c_matrix @ xyz, axis=1)
-    forces = q * lengths  # there is a bug in forces?
-    residuals = loads - c_matrix_t @ q_matrix @ c_matrix @ xyz
-
-    return xyz, lengths, forces, residuals
-
-
 def force_equilibrium(q, edges, xyz, free, fixed, loads):
     """
-    JAX-based force density method.
+    Compute a state of static equilibrium using the force density method.
     """
     c_matrix = connectivity_matrix(edges, "list")
     c_matrix = anp.array(c_matrix)
@@ -65,34 +36,23 @@ def force_equilibrium(q, edges, xyz, free, fixed, loads):
 
     q_matrix = anp.diag(q)
 
+    # solve equilibrium after solving a linear system of equations
     A = c_free_t @ q_matrix @ c_free
     b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz[fixed, :]
-    x = anp.linalg.solve(A, b)
+    xyz_free = anp.linalg.solve(A, b)
 
-    # xyz = anp.copy(xyz)
+    # xyz[free, :] = xyz_free
+    # xyz = index_update(xyz, index[free, :], x)
+    # xyz = xyz.at[free, :].set(x)  # only works with JAX
 
-    try:
-        xyz[free, :] = x
-    except:
-        xyz[free, :] = x._value
-    #
-    # mask_fixed = np.zeros_like(xyz)
-    # mask_fixed[fixed, :] = 1
-    # xyz = mask_fixed * xyz
-    # xyz = xyz + x
+    # workaround for in-place assignment with autograd
+    indices = {key: idx for idx, key in enumerate(free.tolist() + fixed.tolist())}
+    indices = [v for k, v in sorted(indices.items(), key=lambda item: item[0])]
+    xyz = anp.concatenate((xyz_free, xyz[fixed, :]))[indices]
 
-    # xyz = xyz * mask_free
-    # print(xyz)
-
-    # xyz = anp.array(xyz, copy=True)
-    # xyz[free] = x
-
-    # lengths = anp.linalg.norm(c_matrix @ xyz, axis=1)  # shape (n_edges, )
-    # forces = q * lengths  # there is a bug in forces?
-    # residuals = loads - c_matrix_t @ q_matrix @ c_matrix @ xyz
-
+    # compute additional things for equilibrium state
     lengths = anp.linalg.norm(c_matrix @ xyz, axis=1)  # shape (n_edges, )
-    forces = q * lengths  # there is a bug in forces?
+    forces = q * lengths  # TODO: is there a bug in forces?
     residuals = loads - c_matrix_t @ q_matrix @ c_matrix @ xyz
 
     return xyz, lengths, forces, residuals

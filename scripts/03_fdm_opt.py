@@ -32,7 +32,7 @@ JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt_2.json"))
 
 export_json = False
-view = False
+view = True
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
@@ -59,7 +59,7 @@ q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
                               ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
                               method="SLSQP",
                               maxiter=200,
-                              tol=1e-9)
+                              tol=1e-6)
 
 # ==========================================================================
 # Re-run force density to update model
