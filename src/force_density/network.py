@@ -1,9 +1,6 @@
 """
 A catalogue of force networks.
 """
-
-#!/usr/bin/env python3
-
 from compas.datastructures import Network
 
 

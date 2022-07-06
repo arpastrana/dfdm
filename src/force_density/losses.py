@@ -3,7 +3,7 @@
 from abc import ABC
 from abc import abstractmethod
 
-import jax.numpy as np
+import autograd.numpy as np
 
 from force_density.equilibrium import force_equilibrium
 from force_density.equilibrium import ForceDensity
@@ -28,7 +28,7 @@ class Loss(ABC):
         """
         Callable loss object
         """
-        return
+        raise NotImplementedError
 
 
 class MeanSquaredError(Loss):
@@ -42,6 +42,7 @@ class MeanSquaredError(Loss):
         xyz = force_equilibrium(q, *params)
         references = xyz[free, :]
         return np.sum(np.square(references - targets))  # what if np.mean instead?
+
 
 class SquaredError(Loss):
     """
@@ -84,7 +85,6 @@ class SquaredError(Loss):
         """
         """
         return np.sum(np.square(x - y))
-
 
 
 # class MeanSquaredErrorGoals(Loss):

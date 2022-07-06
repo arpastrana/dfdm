@@ -8,7 +8,7 @@ Equilibrate the force network using the traditional force density method.
 import os
 
 # numpy
-import jax.numpy as np
+import autograd.numpy as np
 
 # visualization matters
 from compas.colors import Color
@@ -42,6 +42,7 @@ export_json = False
 
 network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
+print(f"Num nodes = {network.number_of_nodes()}, num edges = {network.number_of_edges()}")
 
 # ==========================================================================
 # Force Density - Extract data
@@ -87,23 +88,23 @@ if export_json:
 # Viewer
 # ==========================================================================
 
-viewer = App(width=1600, height=900)
+# viewer = App(width=1600, height=900)
 
-# equilibrated arch
-viewer.add(network,
-           show_vertices=True,
-           pointsize=12.0,
-           show_edges=True,
-           linecolor=Color.teal(),
-           linewidth=4.0)
+# # equilibrated arch
+# viewer.add(network,
+#            show_vertices=True,
+#            pointsize=12.0,
+#            show_edges=True,
+#            linecolor=Color.teal(),
+#            linewidth=4.0)
 
-# reference arch
-viewer.add(reference_network, show_points=False)
+# # reference arch
+# viewer.add(reference_network, show_points=False)
 
-# draw supports
-for node in network.supports():
-    x, y, z = network.node_coordinates(node)
-    viewer.add(Point(x, y, z), color=Color.green(), size=20)
+# # draw supports
+# for node in network.supports():
+#     x, y, z = network.node_coordinates(node)
+#     viewer.add(Point(x, y, z), color=Color.green(), size=20)
 
-# show le crème
-viewer.show()
+# # show le crème
+# viewer.show()

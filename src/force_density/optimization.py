@@ -1,14 +1,12 @@
-#!/usr/bin/env python3
 """
-A jax-based gradient descent optimization approach
+A gradient-based optimizer.
 """
 from time import time
 
 from math import fabs
 
-import jax.numpy as np
-
-from jax import grad
+import autograd.numpy as anp
+from autograd import grad
 
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
@@ -38,7 +36,7 @@ class Optimizer():
         goals = self.goals
 
         fd = ForceDensity()
-        q = np.array(network.force_densities())
+        q = anp.array(network.force_densities())
         grad_loss = grad(loss_f)
 
         start_time = time()
@@ -84,11 +82,11 @@ class Optimizer():
         goals = self.goals
 
         fd = ForceDensity()
-        q = np.array(network.force_densities())
+        q = anp.array(network.force_densities())
         grad_loss = grad(loss_f)
         parameters = {"network": network, "goals": goals, "fd": fd}
 
-        bounds = Bounds(lb=-np.inf, ub=ub)
+        bounds = Bounds(lb=-anp.inf, ub=ub)
         start_time = time()
 
         print("Optimization started...")

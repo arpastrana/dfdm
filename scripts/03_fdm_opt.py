@@ -31,8 +31,8 @@ from force_density.optimization import Optimizer
 JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt_2.json"))
 
-export_json = True
-view = True
+export_json = False
+view = False
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON

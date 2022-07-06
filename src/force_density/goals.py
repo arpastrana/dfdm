@@ -1,9 +1,8 @@
 """
-A bunch of goals to solve
+A bunch of goals to strive for.
 """
 
 from abc import abstractmethod
-from abc import abstractproperty
 
 
 class Goal:
@@ -14,19 +13,26 @@ class Goal:
     def target(self):
         """
         """
+        raise NotImplementedError
         return
 
     @abstractmethod
     def key(self):
         """
         """
-        return
+        raise NotImplementedError
 
     @abstractmethod
     def reference(self):
         """
         """
-        return
+        raise NotImplementedError
+
+    # @abstractmethod
+    # def update(self):
+    #     """
+    #     """
+    #     raise NotImplementedError
 
 
 class PointGoal(Goal):
