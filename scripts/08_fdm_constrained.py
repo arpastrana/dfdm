@@ -42,13 +42,25 @@ network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
 
 # ==========================================================================
-# Define goals
+# Create goals
 # ==========================================================================
 
 edge_goals = []
 for idx, edge in enumerate(network.edges()):
     target_length = reference_network.edge_length(*edge)
     edge_goals.append(LengthGoal(idx, target_length))  # length goal
+    # edge_goals.add_goal(LengthGoal(edge_key, target_length, weight))
+
+# ==========================================================================
+# Define optimization parameters
+# Q - Force densities (select subset)
+# P - Applied loads (Future)
+# ==========================================================================
+
+# ==========================================================================
+# Define constraints - future
+# ==========================================================================
+
 
 # ==========================================================================
 # Optimization
@@ -60,6 +72,43 @@ q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
                               method="SLSQP",
                               maxiter=200,
                               tol=1e-6)
+
+# q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
+#                               ub=-0.01795 / 0.123,
+#                               method="SLSQP",
+#                               maxiter=200,
+#                               tol=1e-6)
+
+'''
+form = static_equilibrium(network)
+form = constrained_equilibrium(network, goals, constraints, bounds, method, iter, tol)
+form = constrained_equilibrium(nework, loss, optimizer, maxiter, tol)
+optimizer = Optimizer("method", maxiter, tol) or SLSQP(parameters, goals, constraints)
+optimizer.add_parameter()
+sort optimizable parameters with a mask matrix
+
+TODO: how to guarantee ordering of nodes and edges?
+
+q = np.array(network.force_densities())   # shape = (n_edges, )
+P = np.array(network.loads())  # shape = (n_nodes, 3)
+
+# store ordering of q and P
+
+# combine into one long vector of optimization parameters, but preserve order
+x = np.concatenate([q, np.ravel(P)])
+
+# loss
+def loss(model, x, y):
+    y_pred = model(x)
+    return anp.mean((y - y_pred) ** 2)
+
+def loss(y, y_pred):
+    return anp.mean((y - y_pred) ** 2)
+
+def loss_for_grad(x, y, loss):
+    y_pred = model(x)  # equilibrium model
+    return loss(y, y_pred)
+'''
 
 # ==========================================================================
 # Re-run force density to update model

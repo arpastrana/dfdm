@@ -81,10 +81,11 @@ class Optimizer():
         network = self.network
         goals = self.goals
 
-        fd = ForceDensity()
+        # fd = ForceDensity()
         q = anp.array(network.force_densities())
         grad_loss = grad(loss_f)
-        parameters = {"network": network, "goals": goals, "fd": fd}
+        # parameters = {"network": network, "goals": goals, "fd": fd}
+        parameters = {"network": network, "goals": goals}
 
         bounds = Bounds(lb=-anp.inf, ub=ub)
         start_time = time()

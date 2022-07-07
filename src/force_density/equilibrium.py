@@ -15,6 +15,7 @@ class ForceDensity:
         """
         Do FD directly from information pertaining a network.
         """
+        # q = anp.array(network.force_densities())
         params = [anp.array(param) for param in network.fd_parameters()]
         xyz, lengths, forces, residuals = force_equilibrium(q, *params)
         fd_state = {"xyz": xyz, "lengths": lengths, "forces": forces, "residuals": residuals}
@@ -25,15 +26,15 @@ def force_equilibrium(q, edges, xyz, free, fixed, loads):
     """
     Compute a state of static equilibrium using the force density method.
     """
-    c_matrix = connectivity_matrix(edges, "list")
-    c_matrix = anp.array(c_matrix)
-
+    # Immutable stuff
+    c_matrix = connectivity_matrix(edges, "array")
     c_matrix_t = anp.transpose(c_matrix)
 
-    c_free = c_matrix[:, free]
     c_fixed = c_matrix[:, fixed]
+    c_free = c_matrix[:, free]
     c_free_t = anp.transpose(c_free)
 
+    # Mutable stuff
     q_matrix = anp.diag(q)
 
     # solve equilibrium after solving a linear system of equations
@@ -41,11 +42,11 @@ def force_equilibrium(q, edges, xyz, free, fixed, loads):
     b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz[fixed, :]
     xyz_free = anp.linalg.solve(A, b)
 
+    # what we want with regular numpy
     # xyz[free, :] = xyz_free
-    # xyz = index_update(xyz, index[free, :], x)
-    # xyz = xyz.at[free, :].set(x)  # only works with JAX
+    # xyz = xyz.at[free, :].set(x)  # what we cann do, butt only works with JAX
 
-    # workaround for in-place assignment with autograd
+    # xyz -> workaround for in-place assignment with autograd
     indices = {key: idx for idx, key in enumerate(free.tolist() + fixed.tolist())}
     indices = [v for k, v in sorted(indices.items(), key=lambda item: item[0])]
     xyz = anp.concatenate((xyz_free, xyz[fixed, :]))[indices]

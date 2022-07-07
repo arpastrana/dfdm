@@ -97,6 +97,75 @@ class LengthGoal(Goal):
         return
 
 
+class ResidualVectorGoal(Goal):
+    """
+    Make the residual force in a network to match the magnitude and direction of a vector.
+    """
+    def __init__(self, node_key, target_vector):
+        """
+        Let's get rollin'.
+        """
+        self._key = node_key
+        self._target = target_vector
+
+    def key(self):
+        """
+        The key of a node in a network.
+        """
+        return self._key
+
+    def target(self):
+        """
+        The vector to match.
+        """
+        return self._target
+
+    def reference(self, residuals):
+        """
+        The residual at the the reference node of the network.
+        """
+        return residuals[self.key()]
+
+    def update(self):
+        """
+        """
+        pass
+
+
+class ResidualForceGoal(Goal):
+    """
+    Make the residual force in a network to match a given magnitude.
+    """
+    def __init__(self, node_key, target):
+        """
+        Let's get rollin'.
+        """
+        self._key = node_key
+        self._target = target
+
+    def key(self):
+        """
+        The key of a node in a network.
+        """
+        return self._key
+
+    def target(self):
+        """
+        The vector to match.
+        """
+        return self._target
+
+    def reference(self, residuals):
+        """
+        The residual at the the reference node of the network.
+        """
+        return residuals[self.key()]
+
+    def update(self):
+        """
+        """
+        pass
+
 if __name__ == "__main__":
 
     from compas.datastructures import Network

@@ -21,10 +21,16 @@ conda install compas
 conda install compas_view2
 ```
 
-Finally, install `autograd`, our automatic differentiation backend:
+Install `autograd`, our automatic differentiation backend:
 
 ```bash
 pip install autograd
+```
+
+Finally, install this library from source as an editable package:
+
+```bash
+pip install -e .
 ```
 
 Enjoy 🍸!

@@ -1,25 +1,19 @@
-#!/usr/bin/env python3
-
-from abc import ABC
 from abc import abstractmethod
 
 import autograd.numpy as np
 
 from force_density.equilibrium import force_equilibrium
 from force_density.equilibrium import ForceDensity
-
+from force_density.goals import PointGoal
+from force_density.goals import ResidualForceGoal
+from force_density.goals import ResidualVectorGoal
 from compas.datastructures import Network
 
-# import line_profiler
-# import atexit
-
-# profile = line_profiler.LineProfiler()
-# atexit.register(profile.print_stats)
 
 __all__ = ["SquaredError"]
 
 
-class Loss(ABC):
+class Loss:
     """
     The base class for all loss functions.
     """
@@ -29,19 +23,6 @@ class Loss(ABC):
         Callable loss object
         """
         raise NotImplementedError
-
-
-class MeanSquaredError(Loss):
-    """
-    The mean squared error loss
-    """
-    def __call__(self, q, params):
-        """
-        Execute this.
-        """
-        xyz = force_equilibrium(q, *params)
-        references = xyz[free, :]
-        return np.sum(np.square(references - targets))  # what if np.mean instead?
 
 
 class SquaredError(Loss):
@@ -55,22 +36,36 @@ class SquaredError(Loss):
         # access stuff
         network = params["network"]
         goals = params["goals"]
-        fd = params["fd"]
+        # fd = params["fd"]
 
         node_goals = goals["node"]
         edge_goals = goals["edge"]
 
         # do fd
-        fd_state = fd(q, network)
+        fd_state = ForceDensity()(q, network)
         xyz = fd_state["xyz"]
         lengths = fd_state["lengths"]
+        residuals = fd_state["residuals"]
+
+        # indexing map
         k_i = network.key_index()
 
         error = 0.0
+
         # do node goals
         for goal in node_goals:
             y = np.array(goal.target())
-            x = xyz[k_i[goal.key()], :]
+
+            if isinstance(goal, PointGoal):
+                x = xyz[k_i[goal.key()], :]
+
+            elif isinstance(goal, ResidualForceGoal):
+                x = residuals[k_i[goal.key()], :]
+                x = np.linalg.norm(x)
+
+            elif isinstance(goal, ResidualVectorGoal):
+                x = residuals[k_i[goal.key()], :]
+
             error += self.penalize(x, y)
 
         # do edge goals
@@ -121,3 +116,15 @@ class SquaredError(Loss):
 #             targets.append(goal.target())
 
 #         return np.array(references), np.array(targets)
+
+# class MeanSquaredError(Loss):
+#     """
+#     The mean squared error loss
+#     """
+#     def __call__(self, q, params):
+#         """
+#         Execute this.
+#         """
+#         xyz = force_equilibrium(q, *params)
+#         references = xyz[free, :]
+#         return np.sum(np.square(references - targets))  # what if np.mean instead?
