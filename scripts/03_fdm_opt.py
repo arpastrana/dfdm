@@ -46,9 +46,9 @@ reference_network = network.copy()
 # ==========================================================================
 
 edge_goals = []
-for idx, edge in enumerate(network.edges()):
+for edge in network.edges():
     target_length = reference_network.edge_length(*edge)
-    edge_goals.append(LengthGoal(idx, target_length))  # length goal
+    edge_goals.append(LengthGoal(edge, target_length))  # length goal
 
 # ==========================================================================
 # Optimization
@@ -59,7 +59,7 @@ q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
                               ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
                               method="SLSQP",
                               maxiter=200,
-                              tol=1e-6)
+                              tol=1e-9)
 
 # ==========================================================================
 # Re-run force density to update model

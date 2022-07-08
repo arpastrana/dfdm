@@ -77,9 +77,9 @@ index = key_index.get(0)
 # node_goals.append(ResidualForceGoal(index, 2.0))
 # node_goals.append(ResidualVectorGoal(index, [-1.0, 0.0, -1.0]))
 
-for idx, edge in enumerate(network.edges()):
+for edge in network.edges():
     target_length = reference_network.edge_length(*edge)
-    edge_goals.append(LengthGoal(idx, target_length))  # length goal
+    edge_goals.append(LengthGoal(edge, target_length))  # length goal
 
 # ==========================================================================
 # Optimization

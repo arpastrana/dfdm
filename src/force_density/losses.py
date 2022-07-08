@@ -47,8 +47,9 @@ class SquaredError(Loss):
         lengths = fd_state["lengths"]
         residuals = fd_state["residuals"]
 
-        # indexing map
+        # indexing maps
         k_i = network.key_index()
+        uv_i = network.uv_index()
 
         error = 0.0
 
@@ -71,7 +72,7 @@ class SquaredError(Loss):
         # do edge goals
         for goal in edge_goals:
             y = np.array(goal.target())
-            x = lengths[goal.key()]
+            x = lengths[uv_i[goal.key()]]
             error += self.penalize(x, y)
 
         return error
