@@ -3,128 +3,124 @@ A bunch of goals to strive for.
 """
 
 from abc import abstractmethod
+import autograd.numpy as np
 
 
 class Goal:
     """
-    An abstract goal.
+    A base goal.
+    All goal subclasses must inherit from this class.
     """
-    @abstractmethod
-    def target(self):
-        """
-        """
-        raise NotImplementedError
-        return
+    def __init__(self, key, target):
+        self._key = key
+        self._target = target
 
-    @abstractmethod
+    @property
     def key(self):
         """
+        The key of an element in a network.
+        """
+        return self._key
+
+    # @property
+    # def target(self):
+    #     """
+    #     The target to strive for.
+    #     """
+    #     return self._target
+
+    @abstractmethod
+    def index(self, model):
+        """
+        The index of the goal key in the canonical ordering of the equilibrium model.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def reference(self):
+    def reference(self, eq_state, model):
         """
+        Computes the current value of the reference value.
         """
         raise NotImplementedError
 
-    # @abstractmethod
-    # def update(self):
-    #     """
-    #     """
-    #     raise NotImplementedError
+    @abstractmethod
+    def update(self):
+        """
+        Update the value of target based on the current value of reference.
+        """
+        raise NotImplementedError
+
+
+class LengthGoal(Goal):
+    """
+    Make an edge of a network to reach a certain length.
+    """
+    def __init__(self, edge_key, length):
+        super(LengthGoal, self).__init__(key=edge_key,
+                                         target=length)
+
+    def index(self, model):
+        return model.edge_index[self.key]
+
+    def reference(self, eq_state, model):
+        """
+        The current edge length.
+        """
+        index = self.index(model)
+        return eq_state.lengths[index]
+
+    def update(self):
+        """
+        """
+        pass
+
+    def target(self):
+        """
+        The target to strive for.
+        """
+        return self._target
 
 
 class PointGoal(Goal):
     """
     Make a node of a network to reach target xyz coordinates.
     """
-    def __init__(self, key, target):
-        """
-        Let's get rollin'.
-        """
-        self._key = key
-        self._target = target
+    def __init__(self, node_key, point):
+        super(PointGoal, self).__init__(key=node_key, target=point)
 
-    def key(self):
-        """
-        The key of a node in a network.
-        """
-        return self._key
+    def index(self, model):
+        return model.node_index[self.key]
 
-    def target(self):
-        """
-        The xyz coordinates to reach.
-        """
-        return self._target
-
-    def reference(self, xyz):
+    def reference(self, eq_state, model):
         """
         The current xyz coordinates of the node in a network.
         """
-        # return network.node_coordinates(self.key())
-        return xyz[self.key()]
-
-
-class LengthGoal(Goal):
-    """
-    Make an edge of a network to reach certain length.
-    """
-    def __init__(self, key, target):
-        """
-        Let's get rollin'.
-        """
-        self._key = key
-        self._target = target
-
-    def key(self):
-        """
-        The key of a node in a network.
-        """
-        return self._key
+        index = self.index(model)
+        return eq_state.xyz[index, :]
 
     def target(self):
         """
-        The xyz coordinates to reach.
         """
         return self._target
 
-    def reference(self):
+    def update(self):
         """
-        The current xyz coordinates of the node in a network.
         """
-        # return network.node_coordinates(self.key())
-        return
+        pass
 
 
 class ResidualVectorGoal(Goal):
     """
     Make the residual force in a network to match the magnitude and direction of a vector.
     """
-    def __init__(self, node_key, target_vector):
-        """
-        Let's get rollin'.
-        """
-        self._key = node_key
-        self._target = target_vector
+    def __init__(self, node_key, vector):
+        super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
 
-    def key(self):
-        """
-        The key of a node in a network.
-        """
-        return self._key
-
-    def target(self):
-        """
-        The vector to match.
-        """
-        return self._target
-
-    def reference(self, residuals):
+    def reference(self, eq_state):
         """
         The residual at the the reference node of the network.
         """
-        return residuals[self.key()]
+        return eq_state.residuals[self.key(), :]
 
     def update(self):
         """
@@ -136,44 +132,17 @@ class ResidualForceGoal(Goal):
     """
     Make the residual force in a network to match a given magnitude.
     """
-    def __init__(self, node_key, target):
-        """
-        Let's get rollin'.
-        """
-        self._key = node_key
-        self._target = target
+    def __init__(self, node_key, vector):
+        super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
 
-    def key(self):
-        """
-        The key of a node in a network.
-        """
-        return self._key
-
-    def target(self):
-        """
-        The vector to match.
-        """
-        return self._target
-
-    def reference(self, residuals):
+    def reference(self, eq_state):
         """
         The residual at the the reference node of the network.
         """
-        return residuals[self.key()]
+        residual = eq_state.residuals[self.key(), :]
+        return np.linalg.norm(residual)
 
     def update(self):
         """
         """
         pass
-
-if __name__ == "__main__":
-
-    from compas.datastructures import Network
-
-    net = Network()
-    net.add_node(key=0, x=0.0, y=0.0, z=0.0)
-
-    goal = PointGoal(key=0, target=[0.0, 1.0, 0.0])
-    print(goal.target())
-    print(goal.key())
-    print(goal.reference(net))

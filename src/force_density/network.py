@@ -34,6 +34,9 @@ class CompressionNetwork(Network):
                                              "length": 0.0,
                                              "force": 0.0})
 
+    def node_xyz(self, xyz=None, keys=None):
+        return self.nodes_xyz(xyz, keys)
+
     def nodes_xyz(self, xyz=None, keys=None):
         """
         Gets or sets the node coordinates.
@@ -75,6 +78,12 @@ class CompressionNetwork(Network):
         Gets or sets the force density on a single edge.
         """
         return self.edge_attribute(name="q", value=value, key=key)
+
+    def node_loads(self, load=None, keys=None):
+        """
+        Gets or sets a load to the nodes of the network.
+        """
+        return self.nodes_attributes(names=("px", "py", "pz"), values=load, keys=keys)
 
     def applied_load(self, load=None, keys=None):
         """
@@ -134,6 +143,10 @@ class CompressionNetwork(Network):
         Create the initial parameters to carry out the force density method.
         """
         # node key: index mapping
+        # NOTE: change of indices is necesary to build the connectivity matrix!
+        # It assumes nodes edges are alwyas returned in the same order
+        # when invoking network.nodes() and network.edges()
+
         k_i = self.key_index()
 
         # find supports

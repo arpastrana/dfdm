@@ -24,14 +24,14 @@ from force_density.losses import SquaredError
 from force_density.goals import LengthGoal
 from force_density.optimization import Optimizer
 
+import autograd.numpy as np
+
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
 
 JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
-JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt_2.json"))
 
-export_json = False
 view = True
 
 # ==========================================================================
@@ -42,73 +42,32 @@ network = CompressionNetwork.from_json(JSON_IN)
 reference_network = network.copy()
 
 # ==========================================================================
-# Create goals
+# Define goals
 # ==========================================================================
 
+node_goals = []
 edge_goals = []
-for idx, edge in enumerate(network.edges()):
+for edge in network.edges():
     target_length = reference_network.edge_length(*edge)
-    edge_goals.append(LengthGoal(idx, target_length))  # length goal
-    # edge_goals.add_goal(LengthGoal(edge_key, target_length, weight))
-
-# ==========================================================================
-# Define optimization parameters
-# Q - Force densities (select subset)
-# P - Applied loads (Future)
-# ==========================================================================
-
-# ==========================================================================
-# Define constraints - future
-# ==========================================================================
-
+    edge_goals.append(LengthGoal(edge, target_length))  # length goal
 
 # ==========================================================================
 # Optimization
 # ==========================================================================
 
-optimizer = Optimizer(network, node_goals=[], edge_goals=edge_goals)
+optimizer = Optimizer(network, node_goals=node_goals, edge_goals=edge_goals)
+data = {"network": network, "goals": optimizer.goals}
+q = np.array(network.force_densities())
+loss = SquaredError()
+error = loss(q, data)
+print(error)
+break
+
 q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
                               ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
                               method="SLSQP",
                               maxiter=200,
                               tol=1e-6)
-
-# q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
-#                               ub=-0.01795 / 0.123,
-#                               method="SLSQP",
-#                               maxiter=200,
-#                               tol=1e-6)
-
-'''
-form = static_equilibrium(network)
-form = constrained_equilibrium(network, goals, constraints, bounds, method, iter, tol)
-form = constrained_equilibrium(nework, loss, optimizer, maxiter, tol)
-optimizer = Optimizer("method", maxiter, tol) or SLSQP(parameters, goals, constraints)
-optimizer.add_parameter()
-sort optimizable parameters with a mask matrix
-
-TODO: how to guarantee ordering of nodes and edges?
-
-q = np.array(network.force_densities())   # shape = (n_edges, )
-P = np.array(network.loads())  # shape = (n_nodes, 3)
-
-# store ordering of q and P
-
-# combine into one long vector of optimization parameters, but preserve order
-x = np.concatenate([q, np.ravel(P)])
-
-# loss
-def loss(model, x, y):
-    y_pred = model(x)
-    return anp.mean((y - y_pred) ** 2)
-
-def loss(y, y_pred):
-    return anp.mean((y - y_pred) ** 2)
-
-def loss_for_grad(x, y, loss):
-    y_pred = model(x)  # equilibrium model
-    return loss(y, y_pred)
-'''
 
 # ==========================================================================
 # Re-run force density to update model
@@ -136,14 +95,6 @@ for idx, edge in enumerate(network.edges()):
 for idx, node in enumerate(network.nodes()):
     for name, value in zip(["rx", "ry", "rz"], res_opt[idx]):
         network.node_attribute(node, name=name, value=value)
-
-# ==========================================================================
-# Export new JSON file for further operations
-# ==========================================================================
-
-if export_json:
-    network.to_json(JSON_OUT)
-    print("Exported network to: {}".format(JSON_OUT))
 
 # ==========================================================================
 # Viewer

@@ -74,7 +74,7 @@ node_goals = []
 
 key_index = network.key_index()
 index = key_index.get(0)
-# node_goals.append(ResidualForceGoal(index, 2.0))
+node_goals.append(ResidualForceGoal(index, 1.0))
 # node_goals.append(ResidualVectorGoal(index, [-1.0, 0.0, -1.0]))
 
 for edge in network.edges():
@@ -90,7 +90,7 @@ q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
                               ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
                               method="SLSQP",
                               maxiter=500,
-                              tol=1e-9)
+                              tol=1e-12)
 
 # ==========================================================================
 # Re-run force density to update model

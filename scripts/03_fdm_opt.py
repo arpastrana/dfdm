@@ -21,7 +21,9 @@ from force_density import JSON
 from force_density.equilibrium import ForceDensity
 from force_density.network import CompressionNetwork
 from force_density.losses import SquaredError
+from force_density.losses import squared_error
 from force_density.goals import LengthGoal
+from force_density.goals import PointGoal
 from force_density.optimization import Optimizer
 
 # ==========================================================================
@@ -45,17 +47,22 @@ reference_network = network.copy()
 # Define goals
 # ==========================================================================
 
-edge_goals = []
+goals = []
+goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
+
 for edge in network.edges():
     target_length = reference_network.edge_length(*edge)
-    edge_goals.append(LengthGoal(edge, target_length))  # length goal
+    goals.append(LengthGoal(edge, target_length))  # length goal
 
 # ==========================================================================
 # Optimization
 # ==========================================================================
 
-optimizer = Optimizer(network, node_goals=[], edge_goals=edge_goals)
-q_opt = optimizer.solve_scipy(loss_f=SquaredError(),
+optimizer = Optimizer()
+q_opt = optimizer.solve_scipy(network=network,
+                              goals=goals,
+                              # loss_f=SquaredError(),
+                              loss_f=squared_error,
                               ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
                               method="SLSQP",
                               maxiter=200,
