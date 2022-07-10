@@ -12,26 +12,28 @@ from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
 from force_density.equilibrium import EquilibriumSolver
-from force_density.losses import loss
-
-__all__ = ["Optimizer"]
 
 
-class Optimizer():
-    """
-    A gradient-descent optimizer.
-    """
-    # def __init__(self, network, goals):
-    #     """
-    #     Get the ball rolling.
-    #     """
+
+class BaseOptimizer():
+    # def __init__(self, name, network, goals):
+    #     self.name = name
     #     self.network = network
     #     self.goals = goals
 
-    def solve_scipy(self, network, goals, loss_f, ub, method="SLSQP", maxiter=100, tol=None):
+    def __init__(self, name):
+        self.name = name
+
+    # def add_goal(self, goal):
+    #     self.goals.append(goal)
+
+    def minimize(self, network, loss, goals, bounds, maxiter, tol):
+        # returns the optimization result: dataclass OptimizationResult
         """
         Perform gradient descent with Scipy.
         """
+        name = self.name
+
         # array-ize parameters
         q = np.array(network.force_densities(), dtype=np.float64)
         loads = np.array(list(network.node_loads()), dtype=np.float64)
@@ -43,30 +45,74 @@ class Optimizer():
         solver = EquilibriumSolver(network)  # model can be instantiated in solver
 
         # loss matters
-        loss_f = partial(loss, loads=loads, xyz=xyz, solver=solver, goals=goals, myloss=loss_f)
+        loss_f = partial(loss_base,
+                         solver=solver,
+                         loads=loads,
+                         xyz=xyz,
+                         goals=goals,
+                         loss=loss)
+
         grad_loss = grad(loss_f)  # grad w.r.t. first arg
 
         # parameter bounds
-        bounds = Bounds(lb=-np.inf, ub=ub)
+        # bounds makes a re-index from one count system to the other
+        # bounds = optimization_bounds(model, bounds)
+        lb=bounds[0] or -np.inf
+        ub=bounds[1] or np.inf
+        bounds = Bounds(lb=lb, ub=ub)
+
+        # parameter constraints
+        # constraints = optimization_constraints(model, constraints)
 
         # scipy optimization
         start_time = time()
         print("Optimization started...")
 
-
+        # minimize
         res_q = minimize(fun=loss_f,
-                         x0=q,
-                         method=method,  # SLSQP
-                         tol=tol,
                          jac=grad_loss,
+                         method=name,
+                         x0=q,
+                         tol=tol,
                          bounds=bounds,
                          options={"maxiter": maxiter})
-
         # print out
         print(res_q.message)
-        print("Output error in {} iterations: {}".format(res_q.nit, res_q.fun))
-        print("Elapsed time: {} seconds".format(time() - start_time))
+        print(f"Output loss in {res_q.nit} iterations: {res_q.fun}")
+        print(f"Elapsed time: {time() - start_time} seconds")
 
-        q = res_q.x
+        return res_q.x
 
-        return q
+
+class SLSQP(BaseOptimizer):
+    def __init__(self):
+        super(SLSQP, self).__init__(name="SLSQP")
+
+
+def collate_goals(goals, eqstate, model):
+    """
+    TODO: An optimizer / solver object should collate goals.
+    """
+    references = []
+    targets = []
+
+    for goal in goals:
+        ref = goal.reference(eqstate, model)
+        target = goal.target()
+
+        references.append(np.atleast_1d(ref))
+        targets.append(np.atleast_1d(target))
+
+    references = np.concatenate(references, axis=0)
+    targets = np.concatenate(targets, axis=0)
+
+    return references, targets
+
+
+def loss_base(q, loads, xyz, solver, goals, loss):
+    """
+    """
+    eqstate = solver(q, loads, xyz)
+    y_pred, y = collate_goals(goals, eqstate, solver.model)
+
+    return loss(y, y_pred)

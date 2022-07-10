@@ -22,20 +22,6 @@ class Goal:
         """
         return self._key
 
-    # @property
-    # def target(self):
-    #     """
-    #     The target to strive for.
-    #     """
-    #     return self._target
-
-    @abstractmethod
-    def index(self, model):
-        """
-        The index of the goal key in the canonical ordering of the equilibrium model.
-        """
-        raise NotImplementedError
-
     @abstractmethod
     def reference(self, eq_state, model):
         """
@@ -44,9 +30,16 @@ class Goal:
         raise NotImplementedError
 
     @abstractmethod
-    def update(self):
+    def target(self):
         """
-        Update the value of target based on the current value of reference.
+        What we want.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def index(self, model):
+        """
+        The index of the goal key in the canonical ordering of the equilibrium model.
         """
         raise NotImplementedError
 
@@ -69,11 +62,6 @@ class LengthGoal(Goal):
         index = self.index(model)
         return eq_state.lengths[index]
 
-    def update(self):
-        """
-        """
-        pass
-
     def target(self):
         """
         The target to strive for.
@@ -89,6 +77,8 @@ class PointGoal(Goal):
         super(PointGoal, self).__init__(key=node_key, target=point)
 
     def index(self, model):
+        """
+        """
         return model.node_index[self.key]
 
     def reference(self, eq_state, model):
@@ -103,11 +93,6 @@ class PointGoal(Goal):
         """
         return self._target
 
-    def update(self):
-        """
-        """
-        pass
-
 
 class ResidualVectorGoal(Goal):
     """
@@ -120,12 +105,17 @@ class ResidualVectorGoal(Goal):
         """
         The residual at the the reference node of the network.
         """
-        return eq_state.residuals[self.key(), :]
+        return eq_state.residuals[self.key, :]
 
-    def update(self):
+    def index(self, model):
         """
         """
-        pass
+        return model.node_index[self.key]
+
+    def target(self):
+        """
+        """
+        return self._target
 
 
 class ResidualForceGoal(Goal):
@@ -135,14 +125,19 @@ class ResidualForceGoal(Goal):
     def __init__(self, node_key, vector):
         super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
 
+    def index(self, model):
+        """
+        """
+        return model.node_index[self.key]
+
     def reference(self, eq_state):
         """
         The residual at the the reference node of the network.
         """
-        residual = eq_state.residuals[self.key(), :]
+        residual = eq_state.residuals[self.key, :]
         return np.linalg.norm(residual)
 
-    def update(self):
+    def target(self):
         """
         """
-        pass
+        return self._target

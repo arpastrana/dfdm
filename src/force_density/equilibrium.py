@@ -194,21 +194,20 @@ def fdm(network):
     eq_state = solver(q, loads, xyz)
 
     # update equilibrium state in network copy
-    eq_network = network.copy()
-    update_network(eq_network, eq_state)
-
-    return eq_network
+    return updated_network(network, eq_state)  # Network.update(eqstate)
 
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
 
-def update_network(network, eq_state):
+def updated_network(network, eq_state):
     """
     Update in-place the attributes of a network with an equilibrium state.
     TODO: to be extra sure, the node-index and edge-index mappings should be handled
     by EquilibriumModel/EquilibriumStructure
     """
+    network = network.copy()
+
     xyz = eq_state.xyz.tolist()
     lengths = eq_state.lengths.tolist()
     residuals = eq_state.residuals.tolist()
@@ -226,6 +225,32 @@ def update_network(network, eq_state):
 
         for name, value in zip(["rx", "ry", "rz"], residuals[idx]):
             network.node_attribute(node, name=name, value=value)
+
+    return network
+
+# ==========================================================================
+# Constrained fdm
+# ==========================================================================
+
+from functools import partial
+from autograd import grad
+
+
+def constrained_fdm(network, optimizer, loss, goals, bounds, maxiter, tol):
+
+    # optimizer works
+    q = optimizer.minimize(network, loss, goals, bounds, maxiter, tol)
+
+    # get parameters
+    loads = np.array(list(network.node_loads()), dtype=np.float64)
+    xyz = np.array(list(network.node_xyz()), dtype=np.float64)
+
+    # compute static equilibrium
+    solver = EquilibriumSolver(network)  # model can be instantiated in solver
+    eq_state = solver(q, loads, xyz)
+
+    # update equilibrium state in network copy
+    return updated_network(network, eq_state)
 
 # ==========================================================================
 # Legacy code

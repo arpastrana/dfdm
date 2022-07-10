@@ -12,219 +12,188 @@ from force_density.goals import ResidualVectorGoal
 from compas.datastructures import Network
 
 
-__all__ = ["SquaredError"]
-
-
-
-def collate_goals(goals, eqstate, model):
-    """
-    An optimizer / solver object should collate goals.
-    """
-    references = []
-    targets = []
-
-    for goal in goals:
-        ref = goal.reference(eqstate, model)
-
-        goal.update()  # update target
-        target = goal.target()
-
-        references.append(np.atleast_1d(ref))
-        targets.append(np.atleast_1d(target))
-
-    references = np.concatenate(references, axis=0)
-    targets = np.concatenate(targets, axis=0)
-
-    return references, targets
-
-
-class Loss:
-    """
-    The base class for all loss functions.
-    """
-    @abstractmethod
-    def __call__(self):
-        """
-        Callable loss object
-        """
-        raise NotImplementedError
-
 def squared_error(y, y_pred):
     """
     """
     return np.sum(np.square(y - y_pred))
 
 
-def loss_for_grad(q, model, goals, loss):
+def loss_another(q, loads, xyz_fixed, y):
     """
     """
-    # NOTE: loss function from here on
-    eqstate = model(q, loads, xyz)
+    y_pred = model(q, loads, xyz_fixed)
+    return mse(y_pred - y_target) + norm(model.parameters)
+
+
+def loss_yet_another(predictions, targets, parameters):
+    """
+    """
+    return mse(y_pred - y_target) + l2norm(parameters)
+
+
+def loss_for_grad_api(q, model, goals, loss):
+    """
+    """
+    # TODO: eqstate should output reindexed eqstate?
+    # TODO: eqstate = reindex_equilibriumstate(eqstate, model)
+    eqstate = model(q, loads, xyz_fixed)
     y_pred = predictor(eqstate)
     y = target(goals)
-
-    # indexing ma
-    # eqstate = reindex_equilibrium_state(eqstate, structure)
-    # y_pred, y = collator(goals, eqstate, model)
 
     return loss(y, y_pred)
 
 
-def loss(q, loads, xyz, solver, goals, myloss):
-    # NOTE: loss function from here on
-    eqstate = solver(q, loads, xyz)
-    # indexing ma
-    # eqstate = reindex_equilibrium_state(eqstate, structure)
-    y_pred, y = collate_goals(goals, eqstate, solver.model)
-
-    return myloss(y, y_pred)
-
-
-def squared_error(y, y_pred):
-    """
-    """
-    return np.sum(np.square(y - y_pred))
+# class Loss:
+#     """
+#     The base class for all loss functions.
+#     """
+#     @abstractmethod
+#     def __call__(self):
+#         """
+#         Callable loss object
+#         """
+#         raise NotImplementedError
 
 
-class SquaredError(Loss):
-    """
-    The mean squared error loss
-    """
-    def __call__(self, q, loads, xyz, solver, goals):
-        """
-        Execute this.
-        """
+# class SquaredError(Loss):
+#     """
+#     The mean squared error loss
+#     """
+#     def __call__(self, q, loads, xyz, solver, goals):
+#         """
+#         Execute this.
+#         """
 
-        # NOTE: loss function from here on
-        eqstate = solver(q, loads, xyz)
-        # indexing ma
-        # eqstate = reindex_equilibrium_state(eqstate, structure)
-        y_pred, y = collate_goals(goals, eqstate, solver.model)
+#         # NOTE: loss function from here on
+#         eqstate = solver(q, loads, xyz)
+#         # indexing ma
+#         # eqstate = reindex_equilibrium_state(eqstate, structure)
+#         y_pred, y = collate_goals(goals, eqstate, solver.model)
 
-        return self.loss(y, y_pred)
+#         return self.loss(y, y_pred)
 
-    def loss(self, x, y):
-        """
-        """
-        return np.sum(np.square(x - y))
-
-
-class SquaredError2(Loss):
-    """
-    The mean squared error loss
-    """
-    def __call__(self, q, data):
-        """
-        Execute this.
-        """
-        # access stuff
-        network = data["network"]
-        goals = data["goals"]
-
-        node_goals = data["node"]
-        edge_goals = data["edge"]
-
-        # do fd
-        fd_state = ForceDensity()(q, network)
-
-        # unpack
-        xyz = fd_state["xyz"]
-        lengths = fd_state["lengths"]
-        residuals = fd_state["residuals"]
-
-        # indexing maps
-        k_i = network.key_index()
-        uv_i = network.uv_index()
-
-        error = 0.0
-
-        # do node goals
-        for goal in node_goals:
-            y = np.array(goal.target())
-
-            if isinstance(goal, PointGoal):
-                x = xyz[k_i[goal.key()], :]
-
-            elif isinstance(goal, ResidualForceGoal):
-                x = residuals[k_i[goal.key()], :]
-                x = np.linalg.norm(x)
-
-            elif isinstance(goal, ResidualVectorGoal):
-                x = residuals[k_i[goal.key()], :]
-
-            error += self.penalize(x, y)
-
-        # do edge goals
-        for goal in edge_goals:
-            y = np.array(goal.target())
-            x = lengths[uv_i[goal.key()]]
-            error += self.penalize(x, y)
-
-        return error
-
-    def penalize(self, x, y):
-        """
-        """
-        return np.sum(np.square(x - y))
+#     def loss(self, x, y):
+#         """
+#         """
+#         return np.sum(np.square(x - y))
 
 
-class SquaredError3(Loss):
-    """
-    The mean squared error loss
-    """
-    def __call__(self, q, data):
-        """
-        Execute this.
-        """
-        # access stuff -- gotta move to optimizer
-        network = data["network"]
-        goals = data["goals"]
-        node_goals = goals["node"]
-        edge_goals = goals["edge"]
+# class SquaredError2(Loss):
+#     """
+#     The mean squared error loss
+#     """
+#     def __call__(self, q, data):
+#         """
+#         Execute this.
+#         """
+#         # access stuff
+#         network = data["network"]
+#         goals = data["goals"]
 
-        loads = np.array(list(network.node_loads()))
-        xyz = np.array(list(network.node_xyz()))
-        solver = EquilibriumSolver(network)  # model can be instantiated in solver
-        eqstate = solver(q, loads, xyz)
+#         node_goals = data["node"]
+#         edge_goals = data["edge"]
 
-        # indexing maps
-        # k_i = network.key_index()
-        # uv_i = network.uv_index()
-        k_i = solver.model.node_index
-        uv_i = solver.model.edge_index
+#         # do fd
+#         fd_state = ForceDensity()(q, network)
 
-        error = 0.0
+#         # unpack
+#         xyz = fd_state["xyz"]
+#         lengths = fd_state["lengths"]
+#         residuals = fd_state["residuals"]
 
-        # do node goals
-        for goal in node_goals:
-            y = np.array(goal.target())
+#         # indexing maps
+#         k_i = network.key_index()
+#         uv_i = network.uv_index()
 
-            if isinstance(goal, PointGoal):
-                x = eqstate.xyz[k_i[goal.key()], :]
+#         error = 0.0
 
-            elif isinstance(goal, ResidualForceGoal):
-                x = eqstate.residuals[k_i[goal.key()], :]
-                x = np.linalg.norm(x)
+#         # do node goals
+#         for goal in node_goals:
+#             y = np.array(goal.target())
 
-            elif isinstance(goal, ResidualVectorGoal):
-                x = eqstate.residuals[k_i[goal.key()], :]
+#             if isinstance(goal, PointGoal):
+#                 x = xyz[k_i[goal.key()], :]
 
-            error += self.penalize(x, y)
+#             elif isinstance(goal, ResidualForceGoal):
+#                 x = residuals[k_i[goal.key()], :]
+#                 x = np.linalg.norm(x)
 
-        # do edge goals
-        for goal in edge_goals:
-            y = np.array(goal.target())
-            key = goal.key()
-            index = uv_i[key]
-            x = eqstate.lengths[index]
-            error += self.penalize(x, y)
+#             elif isinstance(goal, ResidualVectorGoal):
+#                 x = residuals[k_i[goal.key()], :]
 
-        return error
+#             error += self.penalize(x, y)
 
-    def penalize(self, x, y):
-        """
-        """
-        return np.sum(np.square(x - y))
+#         # do edge goals
+#         for goal in edge_goals:
+#             y = np.array(goal.target())
+#             x = lengths[uv_i[goal.key()]]
+#             error += self.penalize(x, y)
+
+#         return error
+
+#     def penalize(self, x, y):
+#         """
+#         """
+#         return np.sum(np.square(x - y))
+
+
+# class SquaredError3(Loss):
+#     """
+#     The mean squared error loss
+#     """
+#     def __call__(self, q, data):
+#         """
+#         Execute this.
+#         """
+#         # access stuff -- gotta move to optimizer
+#         network = data["network"]
+#         goals = data["goals"]
+#         node_goals = goals["node"]
+#         edge_goals = goals["edge"]
+
+#         loads = np.array(list(network.node_loads()))
+#         xyz = np.array(list(network.node_xyz()))
+#         solver = EquilibriumSolver(network)  # model can be instantiated in solver
+#         eqstate = solver(q, loads, xyz)
+
+#         # indexing maps
+#         # k_i = network.key_index()
+#         # uv_i = network.uv_index()
+#         k_i = solver.model.node_index
+#         uv_i = solver.model.edge_index
+
+#         error = 0.0
+
+#         # do node goals
+#         for goal in node_goals:
+#             y = np.array(goal.target())
+
+#             if isinstance(goal, PointGoal):
+#                 x = eqstate.xyz[k_i[goal.key()], :]
+
+#             elif isinstance(goal, ResidualForceGoal):
+#                 x = eqstate.residuals[k_i[goal.key()], :]
+#                 x = np.linalg.norm(x)
+
+#             elif isinstance(goal, ResidualVectorGoal):
+#                 x = eqstate.residuals[k_i[goal.key()], :]
+
+#             error += self.penalize(x, y)
+
+#         # do edge goals
+#         for goal in edge_goals:
+#             y = np.array(goal.target())
+#             key = goal.key()
+#             index = uv_i[key]
+#             x = eqstate.lengths[index]
+#             error += self.penalize(x, y)
+
+#         return error
+
+#     def penalize(self, x, y):
+#         """
+#         """
+#         return np.sum(np.square(x - y))
 
 # class MeanSquaredErrorGoals(Loss):
 #     """

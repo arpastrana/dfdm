@@ -20,11 +20,11 @@ from compas_view2.app import App
 from force_density import JSON
 from force_density.equilibrium import ForceDensity
 from force_density.network import CompressionNetwork
-from force_density.losses import SquaredError
 from force_density.losses import squared_error
 from force_density.goals import LengthGoal
 from force_density.goals import PointGoal
-from force_density.optimization import Optimizer
+from force_density.optimization import SLSQP
+from force_density.equilibrium import constrained_fdm
 
 # ==========================================================================
 # Initial parameters
@@ -48,8 +48,10 @@ reference_network = network.copy()
 # ==========================================================================
 
 goals = []
-goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
+parameters = []
+constraints = []
 
+goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
 for edge in network.edges():
     target_length = reference_network.edge_length(*edge)
     goals.append(LengthGoal(edge, target_length))  # length goal
@@ -58,42 +60,13 @@ for edge in network.edges():
 # Optimization
 # ==========================================================================
 
-optimizer = Optimizer()
-q_opt = optimizer.solve_scipy(network=network,
-                              goals=goals,
-                              # loss_f=SquaredError(),
-                              loss_f=squared_error,
-                              ub=-0.01795 / 0.123,  # upper bound for q = point load / brick length
-                              method="SLSQP",
-                              maxiter=200,
-                              tol=1e-9)
-
-# ==========================================================================
-# Re-run force density to update model
-# ==========================================================================
-
-fd_opt = ForceDensity()(q_opt, network)
-
-# ==========================================================================
-# Update geometry
-# ==========================================================================
-
-xyz_opt = fd_opt["xyz"].tolist()
-length_opt = fd_opt["lengths"].tolist()
-res_opt = fd_opt["residuals"].tolist()
-
-# update xyz coordinates on nodes
-network.nodes_xyz(xyz_opt)
-
-# update q values and lengths on edges
-for idx, edge in enumerate(network.edges()):
-    network.edge_attribute(edge, name="q", value=q_opt[idx])
-    network.edge_attribute(edge, name="length", value=length_opt[idx])
-
-# update residuals on nodes
-for idx, node in enumerate(network.nodes()):
-    for name, value in zip(["rx", "ry", "rz"], res_opt[idx]):
-        network.node_attribute(node, name=name, value=value)
+network = constrained_fdm(network,
+                          optimizer=SLSQP(),
+                          loss=squared_error,
+                          goals=goals,
+                          bounds=(None, -0.01795/0.123),
+                          maxiter=200,
+                          tol=1e-9)
 
 # ==========================================================================
 # Export new JSON file for further operations

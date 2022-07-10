@@ -20,9 +20,7 @@ from compas_view2.app import App
 from force_density import JSON
 from force_density.equilibrium import ForceDensity
 from force_density.network import CompressionNetwork
-from force_density.losses import SquaredError
 from force_density.goals import LengthGoal
-from force_density.optimization import Optimizer
 
 # ==========================================================================
 # Initial parameters
