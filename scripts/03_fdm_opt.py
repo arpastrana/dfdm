@@ -5,43 +5,41 @@ Solve a constrained force density problem using gradient based optimization.
 # filepath stuff
 import os
 
-# visualization matters
-from compas.colors import Color
-from compas.datastructures import Network
+# differentiable numpy
+import autograd.numpy as np
+
+# geometry processing
 from compas.geometry import Line
 from compas.geometry import Point
 from compas.geometry import add_vectors
-from compas.geometry import scale_vector
 from compas.geometry import length_vector
 
+# visualization mattters
+from compas.colors import Color
 from compas_view2.app import App
 
-# force equilibrium
+# differentiable fdm
 from force_density import JSON
-from force_density.equilibrium import ForceDensity
-from force_density.network import CompressionNetwork
-from force_density.losses import squared_error
+from force_density.datastructures import CompressionNetwork  # datastructures
+from force_density.equilibrium import fdm
+from force_density.equilibrium import constrained_fdm
 from force_density.goals import LengthGoal
 from force_density.goals import PointGoal
 from force_density.optimization import SLSQP
-from force_density.equilibrium import constrained_fdm
+
 
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
 
-JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
-JSON_OUT = os.path.abspath(os.path.join(JSON, "compression_network_opt_2.json"))
-
-export_json = False
 view = True
+JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 
 # ==========================================================================
 # Load Network with boundary conditions from JSON
 # ==========================================================================
 
 network = CompressionNetwork.from_json(JSON_IN)
-reference_network = network.copy()
 
 # ==========================================================================
 # Define goals
@@ -53,38 +51,39 @@ constraints = []
 
 goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
 for edge in network.edges():
-    target_length = reference_network.edge_length(*edge)
+    target_length = network.edge_length(*edge)
     goals.append(LengthGoal(edge, target_length))  # length goal
+
+# ==========================================================================
+# Define loss
+# ==========================================================================
+
+def squared_error(predictions, targets):
+    """
+    """
+    return np.sum(np.square(predictions - targets))
 
 # ==========================================================================
 # Optimization
 # ==========================================================================
 
-network = constrained_fdm(network,
-                          optimizer=SLSQP(),
-                          loss=squared_error,
-                          goals=goals,
-                          bounds=(None, -0.01795/0.123),
-                          maxiter=200,
-                          tol=1e-9)
+constrained_network = constrained_fdm(network,
+                                      optimizer=SLSQP(),
+                                      loss=squared_error,
+                                      goals=goals,
+                                      bounds=(None, -0.01795/0.123),
+                                      maxiter=200,
+                                      tol=1e-9)
 
 # ==========================================================================
-# Export new JSON file for further operations
-# ==========================================================================
-
-if export_json:
-    network.to_json(JSON_OUT)
-    print("Exported network to: {}".format(JSON_OUT))
-
-# ==========================================================================
-# Viewer
+# Visualization
 # ==========================================================================
 
 if view:
     viewer = App(width=1600, height=900)
 
     # equilibrated arch
-    viewer.add(network,
+    viewer.add(constrained_network,
                show_vertices=True,
                pointsize=12.0,
                show_edges=True,
@@ -92,17 +91,17 @@ if view:
                linewidth=4.0)
 
     # reference arch
-    viewer.add(reference_network, show_points=False, linewidth=4.0)
+    viewer.add(network, show_points=False, linewidth=4.0)
 
     # draw lines betwen subject and target nodes
-    for node in network.nodes():
+    for node in constrained_network.nodes():
 
         pt = network.node_coordinates(node)
-        target_pt = reference_network.node_coordinates(node)
+        target_pt = constrained_network.node_coordinates(node)
         viewer.add(Line(target_pt, pt))
 
         # draw reaction forces
-        residual = network.node_attributes(node, names=["rx", "ry", "rz"])
+        residual = constrained_network.node_attributes(node, names=["rx", "ry", "rz"])
 
         if length_vector(residual) < 0.001:
             continue
@@ -111,8 +110,8 @@ if view:
         viewer.add(residual_line, color=Color.purple())
 
     # draw supports
-    for node in network.supports():
-        x, y, z = network.node_coordinates(node)
+    for node in constrained_network.supports():
+        x, y, z = constrained_network.node_coordinates(node)
         viewer.add(Point(x, y, z), color=Color.green(), size=20)
 
 

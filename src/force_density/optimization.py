@@ -16,16 +16,8 @@ from force_density.equilibrium import EquilibriumSolver
 
 
 class BaseOptimizer():
-    # def __init__(self, name, network, goals):
-    #     self.name = name
-    #     self.network = network
-    #     self.goals = goals
-
     def __init__(self, name):
         self.name = name
-
-    # def add_goal(self, goal):
-    #     self.goals.append(goal)
 
     def minimize(self, network, loss, goals, bounds, maxiter, tol):
         # returns the optimization result: dataclass OptimizationResult
