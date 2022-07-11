@@ -70,7 +70,7 @@ class PointGoal(Goal):
         return self._target
 
 
-class LineGoal(Goal):
+class LineRayGoal(Goal):
     """
     Pulls the xyz position of a node to a target line ray.
     """
@@ -152,14 +152,14 @@ class ResidualForceGoal(Goal):
     Make the residual force in a network to match a given magnitude.
     """
     def __init__(self, node_key, vector):
-        super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
+        super(ResidualForceGoal, self).__init__(key=node_key, target=vector)
 
     def index(self, model):
         """
         """
         return model.node_index[self.key]
 
-    def prediction(self, eq_state):
+    def prediction(self, eq_state, model):
         """
         The residual at the the predicted node of the network.
         """
@@ -188,23 +188,92 @@ class ResidualDirectionGoal(Goal):
     potentially expensive trigonometric operations required to yield
     a proper metric.
     """
-    pass
-    # def __init__(self, node_key, vector):
-    #     super(ResidualDirectionGoal, self).__init__(key=node_key, target=vector)
+    def __init__(self, node_key, vector):
+        super(ResidualDirectionGoal, self).__init__(key=node_key, target=vector)
 
-    # def index(self, model):
-    #     """
-    #     """
-    #     return model.node_index[self.key]
+    def index(self, model):
+        """
+        """
+        return model.node_index[self.key]
 
-    # def prediction(self, eq_state, model):
-    #     """
-    #     The residual at the the predicted node of the network.
-    #     """
-    #     index = self.index(model)
-    #     return eq_state.residuals[index, :]
+    def prediction(self, eq_state, model):
+        """
+        The residual at the the predicted node of the network.
+        """
+        index = self.index(model)
+        residual = eq_state.residuals[index, :]
+        return residual / np.linalg.norm(residual)  # unitized residual
 
-    # def target(self, prediction):
-    #     """
-    #     """
-    #     return self._target
+    def target(self, prediction):
+        """
+        """
+        return self._target / np.linalg.norm(self._target)
+
+
+if __name__ == "__main__":
+
+    from compas.colors import Color
+    from compas.geometry import Line
+    from compas.geometry import add_vectors
+    from compas_view2.app import App
+
+    from force_density.equilibrium import fdm
+    from force_density.equilibrium import constrained_fdm
+    from force_density.datastructures import CompressionNetwork
+    from force_density.losses import squared_loss
+    from force_density.optimization import SLSQP
+
+
+    network = CompressionNetwork()
+
+    network.add_node(key=0, x=0.0, y=0.0, z=0.0)
+    network.add_node(key=1, x=1.5, y=2.5, z=0.0)
+    network.add_edge(0, 1)
+
+    network.add_support(0)
+    network.add_load(1, [0.0, 0.0, -2.0])
+
+    network.force_density((0, 1), -1)
+
+    # network.node_load()
+    # network.node_support()
+    # network.node_residual()
+    # network.edge_force()
+    # network.edge_forcedensity()
+
+    network = fdm(network)
+
+    print(f"Edge length: {network.edge_length(0, 1)}")
+    print(f"Edge force: {network.edge_force((0, 1))}")
+
+    residual = network.residual_force(0)
+    print(f"Node residual: {residual}")
+
+    goals = []
+    goal = ResidualDirectionGoal(node_key=0, vector=[0.0, 0.0, -0.1])
+    goals.append(goal)
+
+    network = constrained_fdm(network,
+                              optimizer=SLSQP(),
+                              loss=squared_loss,
+                              goals=goals,
+                              bounds=(-np.inf, 0.0),
+                              maxiter=200,
+                              tol=1e-9)
+
+    viewer = App(width=1600, height=900)
+
+    # equilibrated arch
+    viewer.add(network,
+               show_vertices=True,
+               pointsize=12.0,
+               show_edges=True,
+               linecolor=Color.teal(),
+               linewidth=4.0)
+
+    # support
+    pt = network.node_coordinates(0)
+    viewer.add(Line(pt, add_vectors(pt, residual)),
+               color=Color.purple())
+
+    viewer.show()

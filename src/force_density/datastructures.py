@@ -137,3 +137,15 @@ class CompressionNetwork(Network):
         """
         for edge in set(self.edges()) - set(self.cantilevered_edges()):
             yield edge
+
+    def add_support(self, node):
+        """
+        Add a support to a node of the network.
+        """
+        self.node_attribute(key=node, name="is_support", value=True)
+
+    def add_load(self, node, load):
+        """
+        Apply a load to a node of the network.
+        """
+        return self.node_attributes(key=node, names=("px", "py", "pz"), values=load)
