@@ -137,31 +137,3 @@ class CompressionNetwork(Network):
         """
         for edge in set(self.edges()) - set(self.cantilevered_edges()):
             yield edge
-
-    def fd_parameters(self):
-        """
-        Create the initial parameters to carry out the force density method.
-        """
-        # node key: index mapping
-        # NOTE: change of indices is necesary to build the connectivity matrix!
-        # It assumes nodes edges are alwyas returned in the same order
-        # when invoking network.nodes() and network.edges()
-
-        k_i = self.key_index()
-
-        # find supports
-        fixed = [k_i[key] for key in self.supports()]
-
-        # find free nodes
-        free = [k_i[key] for key in self.free_nodes()]
-
-        # edges
-        edges = [(k_i[u], k_i[v]) for u, v in self.edges()]
-
-        # node coordinates
-        xyz = list(self.nodes_xyz())
-
-        # forces
-        loads = list(self.applied_load())
-
-        return edges, xyz, free, fixed, loads

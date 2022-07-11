@@ -4,6 +4,7 @@ import autograd.numpy as np
 
 from compas.numerical import connectivity_matrix
 
+
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
@@ -232,9 +233,6 @@ def updated_network(network, eq_state):
 # Constrained fdm
 # ==========================================================================
 
-from functools import partial
-from autograd import grad
-
 
 def constrained_fdm(network, optimizer, loss, goals, bounds, maxiter, tol):
 
@@ -251,62 +249,3 @@ def constrained_fdm(network, optimizer, loss, goals, bounds, maxiter, tol):
 
     # update equilibrium state in network copy
     return updated_network(network, eq_state)
-
-# ==========================================================================
-# Legacy code
-# ==========================================================================
-
-class ForceDensity:
-    """
-    A callable-object version of the force density method.
-    """
-    def __call__(self, q, network):
-        """
-        Do FD directly from information pertaining a network.
-        """
-        # q = anp.array(network.force_densities())
-        params = [np.array(param) for param in network.fd_parameters()]
-        xyz, lengths, forces, residuals = force_equilibrium(q, *params)
-        fd_state = {"xyz": xyz, "lengths": lengths, "forces": forces, "residuals": residuals}
-        return fd_state
-
-
-def force_equilibrium(q, edges, xyz, free, fixed, loads):
-    """
-    Compute a state of static equilibrium using the force density method.
-    """
-    # Immutable stuff
-    c_matrix = connectivity_matrix(edges, "array")
-    c_matrix_t = np.transpose(c_matrix)
-
-    c_fixed = c_matrix[:, fixed]
-    c_free = c_matrix[:, free]
-    c_free_t = np.transpose(c_free)
-
-    # Mutable stuff
-    q_matrix = np.diag(q)
-
-    # solve equilibrium after solving a linear system of equations
-    A = c_free_t @ q_matrix @ c_free
-    b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz[fixed, :]
-    xyz_free = np.linalg.solve(A, b)
-
-    # syntactic sugar
-    xyz_fixed = xyz[fixed, :]
-
-    # what we want with regular numpy
-    # xyz[free, :] = xyz_free
-    # xyz = xyz.at[free, :].set(x)  # what we cann do, butt only works with JAX
-
-    # xyz -> workaround for in-place assignment with autograd
-    indices = {key: idx for idx, key in enumerate(free.tolist() + fixed.tolist())}
-    indices = [v for k, v in sorted(indices.items(), key=lambda item: item[0])]
-
-    xyz = np.concatenate((xyz_free, xyz_fixed))[indices]
-
-    # compute additional things for equilibrium state
-    lengths = np.linalg.norm(c_matrix @ xyz, axis=1)  # shape (n_edges, )
-    forces = q * lengths  # TODO: is there a bug in forces?
-    residuals = loads - c_matrix_t @ q_matrix @ c_matrix @ xyz
-
-    return xyz, lengths, forces, residuals

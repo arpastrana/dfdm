@@ -7,20 +7,16 @@ import os
 
 # visualization matters
 from compas.colors import Color
-from compas.datastructures import Network
 from compas.geometry import Line
 from compas.geometry import Point
 from compas.geometry import add_vectors
-from compas.geometry import scale_vector
 from compas.geometry import length_vector
-
 from compas_view2.app import App
 
 # force equilibrium
 from force_density import JSON
-from force_density.equilibrium import ForceDensity
-from force_density.network import CompressionNetwork
-from force_density.goals import LengthGoal
+from force_density.datastructures import CompressionNetwork
+from force_density.equilibrium import fdm
 
 # ==========================================================================
 # Initial parameters
@@ -33,42 +29,13 @@ JSON_IN = os.path.abspath(os.path.join(JSON, "compression_network.json"))
 # Load Network with boundary conditions from JSON
 # ==========================================================================
 
-network = CompressionNetwork.from_json(JSON_IN)
-reference_network = network.copy()
+network_start = CompressionNetwork.from_json(JSON_IN)
 
 # ==========================================================================
 # Re-run force density to update model
 # ==========================================================================
 
-from force_density.equilibrium import fdm
-new_network = fdm(network)
-
-# ==========================================================================
-# Re-run force density to update model
-# ==========================================================================
-
-q = network.force_densities()
-fd = ForceDensity()(q, network)
-
-# ==========================================================================
-# Update geometry
-# ==========================================================================
-
-xyz = fd["xyz"].tolist()
-lengths = fd["lengths"].tolist()
-residuals = fd["residuals"].tolist()
-
-# update xyz coordinates on nodes
-network.nodes_xyz(xyz)
-
-# update q values and lengths on edges
-for idx, edge in enumerate(network.edges()):
-    network.edge_attribute(edge, name="length", value=lengths[idx])
-
-# update residuals on nodes
-for idx, node in enumerate(network.nodes()):
-    for name, value in zip(["rx", "ry", "rz"], residuals[idx]):
-        network.node_attribute(node, name=name, value=value)
+network = fdm(network_start)
 
 # ==========================================================================
 # Viewer
@@ -77,28 +44,20 @@ for idx, node in enumerate(network.nodes()):
 if view:
     viewer = App(width=1600, height=900)
 
-    viewer.add(new_network,
+    viewer.add(network,
                show_vertices=False,
                show_edges=True,
                linecolor=Color.pink(),
                linewidth=4.0)
 
-    # equilibrated arch
-    viewer.add(network,
-               show_vertices=True,
-               pointsize=12.0,
-               show_edges=True,
-               linecolor=Color.teal(),
-               linewidth=4.0)
-
     # reference arch
-    viewer.add(reference_network, show_points=False, linewidth=4.0)
+    viewer.add(network_start, show_points=False, linewidth=4.0)
 
     # draw lines betwen subject and target nodes
     for node in network.nodes():
 
-        pt = network.node_coordinates(node)
-        target_pt = reference_network.node_coordinates(node)
+        pt = network_start.node_coordinates(node)
+        target_pt = network.node_coordinates(node)
         viewer.add(Line(target_pt, pt))
 
         # draw reaction forces
@@ -114,7 +73,6 @@ if view:
     for node in network.supports():
         x, y, z = network.node_coordinates(node)
         viewer.add(Point(x, y, z), color=Color.green(), size=20)
-
 
     # show le crème
     viewer.show()

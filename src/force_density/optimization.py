@@ -14,6 +14,9 @@ from scipy.optimize import Bounds
 from force_density.equilibrium import EquilibriumSolver
 
 
+# ==========================================================================
+# BaseOptimizer
+# ==========================================================================
 
 class BaseOptimizer():
     def __init__(self, name):
@@ -75,34 +78,53 @@ class BaseOptimizer():
 
         return res_q.x
 
+# ==========================================================================
+# Optimizers
+# ==========================================================================
 
 class SLSQP(BaseOptimizer):
+    """
+    The sequential least-squares programming optimizer.
+    """
     def __init__(self):
         super(SLSQP, self).__init__(name="SLSQP")
 
+
+class BFGS(BaseOptimizer):
+    """
+    The Boyd-Fletcher-Floyd-Shannon optimizer.
+    """
+    def __init__(self):
+        super(BFGS, self).__init__(name="BFGS")
+
+# ==========================================================================
+# Utilities
+# ==========================================================================
 
 def collate_goals(goals, eqstate, model):
     """
     TODO: An optimizer / solver object should collate goals.
     """
-    references = []
+    predictions = []
     targets = []
 
     for goal in goals:
-        ref = goal.reference(eqstate, model)
-        target = goal.target()
+        pred = goal.prediction(eqstate, model)
+        target = goal.target(pred)
 
-        references.append(np.atleast_1d(ref))
+        predictions.append(np.atleast_1d(pred))
         targets.append(np.atleast_1d(target))
 
-    references = np.concatenate(references, axis=0)
+    predictions = np.concatenate(predictions, axis=0)
     targets = np.concatenate(targets, axis=0)
 
-    return references, targets
+    return predictions, targets
 
 
 def loss_base(q, loads, xyz, solver, goals, loss):
     """
+    The master loss to minimize.
+    Takes user-defined loss as input.
     """
     eqstate = solver(q, loads, xyz)
     y_pred, y = collate_goals(goals, eqstate, solver.model)

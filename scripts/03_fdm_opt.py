@@ -20,13 +20,19 @@ from compas_view2.app import App
 
 # differentiable fdm
 from force_density import JSON
+
 from force_density.datastructures import CompressionNetwork  # datastructures
-from force_density.equilibrium import fdm
+
+from force_density.losses import squared_loss
+from force_density.losses import squared_loss
+
 from force_density.equilibrium import constrained_fdm
+
 from force_density.goals import LengthGoal
 from force_density.goals import PointGoal
-from force_density.optimization import SLSQP
 
+from force_density.optimization import SLSQP
+from force_density.optimization import BFGS
 
 # ==========================================================================
 # Initial parameters
@@ -46,22 +52,12 @@ network = CompressionNetwork.from_json(JSON_IN)
 # ==========================================================================
 
 goals = []
-parameters = []
-constraints = []
 
 goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
+
 for edge in network.edges():
     target_length = network.edge_length(*edge)
-    goals.append(LengthGoal(edge, target_length))  # length goal
-
-# ==========================================================================
-# Define loss
-# ==========================================================================
-
-def squared_error(predictions, targets):
-    """
-    """
-    return np.sum(np.square(predictions - targets))
+    goals.append(LengthGoal(edge, target_length))
 
 # ==========================================================================
 # Optimization
@@ -69,9 +65,9 @@ def squared_error(predictions, targets):
 
 constrained_network = constrained_fdm(network,
                                       optimizer=SLSQP(),
-                                      loss=squared_error,
+                                      loss=squared_loss,
                                       goals=goals,
-                                      bounds=(None, -0.01795/0.123),
+                                      bounds=(-np.inf, 0.0),
                                       maxiter=200,
                                       tol=1e-9)
 
