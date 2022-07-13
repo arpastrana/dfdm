@@ -53,11 +53,11 @@ network = CompressionNetwork.from_json(JSON_IN)
 
 goals = []
 
-goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
-
-for edge in network.edges():
-    target_length = network.edge_length(*edge)
+for node_u, node_v in network.edges():
+    target_length = network.edge_length(node_u, node_v)
     goals.append(LengthGoal(edge, target_length))
+
+goals.append(PointGoal(node_key=0, point=network.node_coordinates(0)))
 
 # ==========================================================================
 # Optimization
