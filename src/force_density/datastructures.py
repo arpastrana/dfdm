@@ -56,6 +56,27 @@ class CompressionNetwork(Network):
         """
         return self.nodes_where({"is_support": False})
 
+    def nodes_free(self):
+        """
+        The keys of the nodes where there is no support assigned.
+        """
+        return self.nodes_where({"is_support": False})
+
+    def node_support(self, node):
+        """
+        Sets a node as a fixed anchor.
+        """
+        return self.node_attribute(key=node, name="is_support", value=True)
+
+    def nodes_supports(self, keys=None):
+        """
+        Gets or sets the node keys where a support has been assigned.
+        """
+        if keys is None:
+            return self.nodes_where({"is_support": True})
+
+        return self.nodes_attribute(name="is_support", value=True, keys=keys)
+
     def supports(self, keys=None):
         """
         Gets or sets the node keys where a support has been assigned.
@@ -78,6 +99,18 @@ class CompressionNetwork(Network):
         Gets or sets the force density on a single edge.
         """
         return self.edge_attribute(name="q", value=value, key=key)
+
+    def edge_forcedensity(self, key, forcedensity=None):
+        """
+        Gets or sets the force density on a single edge.
+        """
+        return self.edge_attribute(name="q", value=forcedensity, key=key)
+
+    def node_load(self, node, load=None):
+        """
+        Gets or sets a load to the nodes of the network.
+        """
+        return self.node_attributes(key=node, names=("px", "py", "pz"), values=load)
 
     def node_loads(self, load=None, keys=None):
         """
