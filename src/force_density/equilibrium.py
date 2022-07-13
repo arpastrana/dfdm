@@ -21,7 +21,6 @@ class EquilibriumModel:
 
         self._node_index = None
         self._edge_index = None
-        self._freefixed_index = None
 
         # self._ordering_nodes = None
         # self._ordering_edges = None
@@ -84,7 +83,7 @@ class EquilibriumModel:
     @property
     def freefixed_nodes(self):
         """
-        A list with the node keys of all the edges sorted by their node index.
+        A list with the node keys of all the nodes sorted by their node index.
         TODO: this method must be more transparent / clearer.
         """
         if not self._freefixed_nodes:
@@ -111,19 +110,19 @@ class EquilibriumSolver:
         self.model = model
         self.structure = model
 
-    def edge_lengths(self, xyz):
+    def _edges_lengths(self, xyz):
         connectivity = self.structure.connectivity
         return np.linalg.norm(connectivity @ xyz, axis=1)
 
-    def edge_forces(self, q, lengths):
+    def _edges_forces(self, q, lengths):
         # TODO: is there a bug in edge forces?
         return q * lengths
 
-    def node_residuals(self, q, loads, xyz):
+    def _nodes_residuals(self, q, loads, xyz):
         connectivity = self.structure.connectivity
         return loads - np.transpose(connectivity) @ np.diag(q) @ connectivity @ xyz
 
-    def node_positions(self, q, loads, xyz):
+    def _nodes_positions(self, q, loads, xyz):
         # convenience shorthands
         connectivity = self.structure.connectivity
         free = self.structure.free_nodes
@@ -156,12 +155,12 @@ class EquilibriumSolver:
         """
         Compute an equilibrium state using the force density method.
         """
-        xyz_eq = self.node_positions(q, loads, xyz)
-        residuals = self.node_residuals(q, loads, xyz_eq)
-        lengths = self.edge_lengths(xyz_eq)
-        forces = self.edge_forces(q, lengths)
+        xyz_eq = self._nodes_positions(q, loads, xyz)
+        residuals = self._nodes_residuals(q, loads, xyz_eq)
+        lengths = self._edges_lengths(xyz_eq)
+        forces = self._edges_forces(q, lengths)
 
-        return EquilibriumState(xyz=xyz_eq, residuals=residuals, lengths=lengths, forces=forces)
+        return EquilibriumState(xyz=xyz_eq, residuals=residuals, lengths=lengths, forces=forces, forcedensities=q)
 
 # ==========================================================================
 # Initial parameters
@@ -176,6 +175,7 @@ class EquilibriumState:
     residuals: np.ndarray
     lengths: np.ndarray
     forces: np.ndarray
+    forcedensities: np.ndarray
 
 
 # ==========================================================================
@@ -213,11 +213,13 @@ def updated_network(network, eq_state):
     lengths = eq_state.lengths.tolist()
     residuals = eq_state.residuals.tolist()
     forces = eq_state.forces.tolist()
+    forcedensities = eq_state.forcedensities.tolist()
 
     # update q values and lengths on edges
     for idx, edge in enumerate(network.edges()):
         network.edge_attribute(edge, name="length", value=lengths[idx])
         network.edge_attribute(edge, name="force", value=forces[idx])
+        network.edge_attribute(edge, name="q", value=forcedensities[idx])
 
     # update residuals on nodes
     for idx, node in enumerate(network.nodes()):
