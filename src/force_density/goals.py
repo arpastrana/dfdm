@@ -3,8 +3,11 @@ A bunch of goals to strive for.
 """
 
 from abc import abstractmethod
+
 import autograd.numpy as np
+
 from compas.geometry import closest_point_on_line
+from compas.geometry import closest_point_on_plane
 
 
 class Goal:
@@ -70,7 +73,7 @@ class PointGoal(Goal):
         return self._target
 
 
-class LineRayGoal(Goal):
+class LineGoal(Goal):
     """
     Pulls the xyz position of a node to a target line ray.
     """
@@ -92,9 +95,35 @@ class LineRayGoal(Goal):
     def target(self, prediction):
         """
         """
-        prediction = prediction.tolist()
         line = self._target
-        return closest_point_on_line(prediction, line)
+        return np.array(closest_point_on_line(prediction, line), dtype=np.float64)
+
+
+class PlaneGoal(Goal):
+    """
+    Pulls the xyz position of a node to a target plane.
+    """
+    def __init__(self, node_key, plane):
+        super(PlaneGoal, self).__init__(key=node_key, target=plane)
+
+    def index(self, model):
+        """
+        """
+        return model.node_index[self.key]
+
+    def prediction(self, eq_state, model):
+        """
+        The current xyz coordinates of the node in a network.
+        """
+        index = self.index(model)
+        return eq_state.xyz[index, :]
+
+    def target(self, prediction):
+        """
+        """
+        point = prediction
+        plane = self._target
+        return np.array(closest_point_on_plane(point, plane), dtype=np.float64)
 
 
 class LengthGoal(Goal):
@@ -102,8 +131,7 @@ class LengthGoal(Goal):
     Make an edge of a network to reach a certain length.
     """
     def __init__(self, edge_key, length):
-        super(LengthGoal, self).__init__(key=edge_key,
-                                         target=length)
+        super(LengthGoal, self).__init__(key=edge_key, target=length)
 
     def index(self, model):
         return model.edge_index[self.key]
@@ -149,10 +177,11 @@ class ResidualVectorGoal(Goal):
 
 class ResidualForceGoal(Goal):
     """
-    Make the residual force in a network to match a given magnitude.
+    Make the residual force in a network to match a non-negative magnitude.
     """
-    def __init__(self, node_key, vector):
-        super(ResidualForceGoal, self).__init__(key=node_key, target=vector)
+    def __init__(self, node_key, force):
+        assert force >= 0.0
+        super(ResidualForceGoal, self).__init__(key=node_key, target=force)
 
     def index(self, model):
         """
@@ -226,7 +255,7 @@ if __name__ == "__main__":
 
     network = CompressionNetwork()
 
-    network.add_node(key=0, x=0.0, y=0.0, z=0.0)
+    network.add_node(key=0, x=1.0, y=0.0, z=0.0)
     network.add_node(key=1, x=1.5, y=2.5, z=0.0)
     network.add_edge(0, 1)
 
@@ -234,12 +263,6 @@ if __name__ == "__main__":
     network.add_load(1, [0.0, 0.0, -2.0])
 
     network.force_density((0, 1), -1)
-
-    # network.node_load()
-    # network.node_support()
-    # network.node_residual()
-    # network.edge_force()
-    # network.edge_forcedensity()
 
     network = fdm(network)
 
@@ -250,7 +273,7 @@ if __name__ == "__main__":
     print(f"Node residual: {residual}")
 
     goals = []
-    goal = ResidualDirectionGoal(node_key=0, vector=[0.0, 0.0, -0.1])
+    goal = ResidualDirectionGoal(node_key=0, vector=[0.0, 0.0, -1.0])
     goals.append(goal)
 
     network = constrained_fdm(network,

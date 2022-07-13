@@ -61,7 +61,6 @@ class BaseOptimizer():
             ub = +np.inf
 
         bounds = Bounds(lb=lb, ub=ub)
-        print(bounds)
 
         # parameter constraints
         # constraints = optimization_constraints(model, constraints)
