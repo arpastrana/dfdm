@@ -52,9 +52,16 @@ class BaseOptimizer():
         # parameter bounds
         # bounds makes a re-index from one count system to the other
         # bounds = optimization_bounds(model, bounds)
-        lb=bounds[0] or -np.inf
-        ub=bounds[1] or np.inf
+        lb = bounds[0]
+        if lb is None:
+            lb = -np.inf
+
+        ub = bounds[1]
+        if ub is None:
+            ub = +np.inf
+
         bounds = Bounds(lb=lb, ub=ub)
+        print(bounds)
 
         # parameter constraints
         # constraints = optimization_constraints(model, constraints)
@@ -73,7 +80,7 @@ class BaseOptimizer():
                          options={"maxiter": maxiter})
         # print out
         print(res_q.message)
-        print(f"Output loss in {res_q.nit} iterations: {res_q.fun}")
+        print(f"Final loss in {res_q.nit} iterations: {res_q.fun}")
         print(f"Elapsed time: {time() - start_time} seconds")
 
         return res_q.x
