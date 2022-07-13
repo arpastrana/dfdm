@@ -48,11 +48,8 @@ num_v = 5
 q_init = -0.25
 pz = -0.1
 
-# rz_min = 0.25
-# rz_max = 1.5
-
-rz_max = 0.25
-rz_min = 2.0
+rz_min = 0.25
+rz_max = 2.0
 
 # ==========================================================================
 # Instantiate compression network
@@ -69,6 +66,7 @@ length_u = length_vault / (num_u - 1)
 length_v = width_vault / (num_v - 1)
 
 arches = []
+long_edges = []
 for i in range(num_v):
 
     arch = []
@@ -86,16 +84,16 @@ for i in range(num_v):
     b = a + num_u - 1
     for u, v in zip(range(a, b), range(a + 1, b + 1)):
         edge = network.add_edge(u, v)
+        long_edges.append(edge)
 
 cross_edges = []
 for i in range(1, num_u - 1):
-# for i in range(num_u):
     seq = []
     for arch in arches:
         seq.append(arch[i])
     for u, v in zip(seq[:-1], seq[1:]):
-        network.add_edge(u, v)
-        cross_edges.append((u, v))
+        edge = network.add_edge(u, v)
+        cross_edges.append(edge)
 
 # ==========================================================================
 # Define structural system
@@ -115,13 +113,7 @@ for edge in network.edges():
     network.edge_forcedensity(edge, q_init)
 
 # ==========================================================================
-# Run the force density method
-# ==========================================================================
-
-c_network = fdm(network)
-
-# ==========================================================================
-# Create target distribution of residual forces
+# Create a target distribution of residual force magnitudes
 # ==========================================================================
 
 # create linear range of reaction force goals
@@ -131,10 +123,9 @@ step_size = (rz_max - rz_min) / num_steps
 
 rzs = []
 for i in range(int(num_steps) + 1):
-    rzs.append(rz_max - i * step_size)
+    rzs.append(rz_min + i * step_size)
 
 rzs = rzs + rzs[0:-1][::-1]
-# print(rzs)
 
 # ==========================================================================
 # Define goals
@@ -142,27 +133,12 @@ rzs = rzs + rzs[0:-1][::-1]
 
 goals = []
 for rz, arch in zip(rzs, arches):
-    # goals.append(ResidualDirectionGoal(arch[0], vector=[-1.0, 0.0, -rz]))
-    # goals.append(ResidualDirectionGoal(arch[-1], vector=[1.0, 0.0, -rz]))
-
     goals.append(ResidualForceGoal(arch[0], force=rz))
     goals.append(ResidualForceGoal(arch[-1], force=rz))
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
     goals.append(LengthGoal(edge, 0.75 * target_length))
-
-# for node in network.nodes_free():
-
-#     arches_to_skip = set(arches[0]).union(set(arches[-1]))
-#     if node in arches_to_skip:
-#         print("here")
-#         continue
-
-#     start = network.node_coordinates(node)
-#     end = add_vectors(start, [0.0, 0.0, 10.0])
-#     goal = LineGoal(node, line=(start, end))
-#     goals.append(goal)
 
 for node in network.nodes_free():
     origin = network.node_coordinates(node)
@@ -184,7 +160,7 @@ c_network = constrained_fdm(network,
                             tol=1e-9)
 
 # ==========================================================================
-# Stats
+# Print out stats
 # ==========================================================================
 
 counter = 0
@@ -201,10 +177,6 @@ print()
 fds = [c_network.edge_forcedensity(edge) for edge in c_network.edges()]
 print(f"Force density stats. Min: {round(min(fds), 2)}. Max: {round(max(fds), 2)}. Mean: {round(sum(fds) / len(fds), 2)}")
 
-# for edge in c_network.edges():
-#     fd = c_network.edge_forcedensity(edge)
-#     print(f"Force density on edge {edge}: {round(fd, 2)}")
-
 # ==========================================================================
 # Visualization
 # ==========================================================================
@@ -212,24 +184,17 @@ print(f"Force density stats. Min: {round(min(fds), 2)}. Max: {round(max(fds), 2)
 viewer = App(width=1600, height=900, show_grid=False)
 
 # reference arch
-viewer.add(network, show_points=True, linewidth=3.0, color=Color.grey().darkened())
+viewer.add(network, show_points=True, linewidth=2.0, color=Color.grey().darkened())
 
 # edges color map
 cmap = ColorMap.from_mpl("viridis")
 
-forces = [fabs(c_network.edge_force(edge)) for edge in c_network.edges()]
+fds = [fabs(c_network.edge_forcedensity(edge)) for edge in c_network.edges()]
 colors = {}
 for edge in c_network.edges():
-    force = fabs(c_network.edge_force(edge))
-    ratio = (force - min(forces)) / (max(forces) - min(forces))
+    fd = fabs(c_network.edge_forcedensity(edge))
+    ratio = (fd - min(fds)) / (max(fds) - min(fds))
     colors[edge] = cmap(ratio)
-
-# fds = [fabs(c_network.edge_forcedensity(edge)) for edge in c_network.edges()]
-# colors = {}
-# for edge in c_network.edges():
-#     fd = fabs(c_network.edge_forcedensity(edge))
-#     ratio = (fd - min(fds)) / (max(fds) - min(fds))
-#     colors[edge] = cmap(ratio)
 
 # optimized network
 viewer.add(c_network,
@@ -245,7 +210,7 @@ for node in c_network.nodes():
 
     # draw lines betwen subject and target nodes
     target_pt = network.node_coordinates(node)
-    viewer.add(Line(target_pt, pt))
+    viewer.add(Line(target_pt, pt), linewidth=1.0, color=Color.grey().lightened())
 
     # draw residual forces
     residual = c_network.node_attributes(node, names=["rx", "ry", "rz"])
@@ -256,7 +221,7 @@ for node in c_network.nodes():
     # print(node, residual, length_vector(residual))
     residual_line = Line(pt, add_vectors(pt, residual))
     viewer.add(residual_line,
-               linewidth=2.0,
+               linewidth=4.0,
                color=Color.pink())  # Color.purple()
 
 # draw applied loads
