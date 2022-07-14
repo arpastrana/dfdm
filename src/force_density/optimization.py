@@ -11,7 +11,7 @@ from autograd import grad
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
-from force_density.equilibrium import EquilibriumSolver
+from force_density.equilibrium import EquilibriumModel
 
 
 # ==========================================================================
@@ -30,18 +30,15 @@ class BaseOptimizer():
         name = self.name
 
         # array-ize parameters
-        q = np.array(network.force_densities(), dtype=np.float64)
-        loads = np.array(list(network.node_loads()), dtype=np.float64)
-        xyz = np.array(list(network.node_xyz()), dtype=np.float64)  # probably should be xyz_fixed only
+        q = np.array(network.edges_forcedensities(), dtype=np.float64)
+        loads = np.array(list(network.nodes_loads()), dtype=np.float64)
+        xyz = np.array(list(network.nodes_coordinates()), dtype=np.float64)  # probably should be xyz_fixed only
 
-        # NOTE: It is immutable
-        # access stuff -- gotta move to optimizer
-        # TODO: Rename EquilibriumSolver to EquilibriumModel and EquilibriumModel to other
-        solver = EquilibriumSolver(network)  # model can be instantiated in solver
+        model = EquilibriumModel(network)  # model can be instantiated in solver
 
         # loss matters
         loss_f = partial(loss_base,
-                         solver=solver,
+                         model=model,
                          loads=loads,
                          xyz=xyz,
                          goals=goals,
@@ -115,7 +112,7 @@ def collate_goals(goals, eqstate, model):
     targets = []
 
     for goal in goals:
-        pred = goal.prediction(eqstate, model)
+        pred = goal.prediction(eqstate, model.structure)
         target = goal.target(pred)
 
         predictions.append(np.atleast_1d(pred))
@@ -127,12 +124,12 @@ def collate_goals(goals, eqstate, model):
     return predictions, targets
 
 
-def loss_base(q, loads, xyz, solver, goals, loss):
+def loss_base(q, loads, xyz, model, goals, loss):
     """
     The master loss to minimize.
     Takes user-defined loss as input.
     """
-    eqstate = solver(q, loads, xyz)
-    y_pred, y = collate_goals(goals, eqstate, solver.model)
+    eqstate = model(q, loads, xyz)
+    y_pred, y = collate_goals(goals, eqstate, model)
 
     return loss(y, y_pred)

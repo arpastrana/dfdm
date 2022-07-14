@@ -1,23 +1,18 @@
 """
-A catalogue of force networks.
+A catalogue of force density networks.
 """
 from compas.datastructures import Network
 
 
-__all__ = ["CompressionNetwork"]
+__all__ = ["ForceDensityNetwork"]
 
 
-class CompressionNetwork(Network):
+class ForceDensityNetwork(Network):
     """
-    A compression-only structural network.
+    A force density network.
     """
     def __init__(self, *args, **kwargs):
-        """
-        Initialize some values at instantiation.
-        """
-        super(CompressionNetwork, self).__init__(*args, **kwargs)
-
-        self.name = "Funicular Network"
+        super(ForceDensityNetwork, self).__init__(*args, **kwargs)
 
         self.update_default_node_attributes({"x": 0.0,
                                              "y": 0.0,
@@ -34,39 +29,18 @@ class CompressionNetwork(Network):
                                              "length": 0.0,
                                              "force": 0.0})
 
-    def node_xyz(self, xyz=None, keys=None):
-        return self.nodes_xyz(xyz, keys)
-
-    def nodes_xyz(self, xyz=None, keys=None):
+    def nodes_coordinates(self, keys=None, axes="xyz"):
         """
-        Gets or sets the node coordinates.
+        Gets or sets the x, y, z coordinates of a list of nodes.
         """
-        if xyz is None:
-            return self.nodes_attributes(names="xyz", keys=keys)
+        keys = keys or self.nodes()
+        return [self.node_coordinates(node, axes) for node in keys]
 
-        if not keys:
-            keys = self.nodes()
-
-        for key, values in zip(keys, xyz):
-            self.node_attributes(key, names="xyz", values=values)
-
-    def free_nodes(self):
-        """
-        The keys of the nodes where there is no support assigned.
-        """
-        return self.nodes_where({"is_support": False})
-
-    def nodes_free(self):
-        """
-        The keys of the nodes where there is no support assigned.
-        """
-        return self.nodes_where({"is_support": False})
-
-    def node_support(self, node):
+    def node_support(self, key):
         """
         Sets a node as a fixed anchor.
         """
-        return self.node_attribute(key=node, name="is_support", value=True)
+        return self.node_attribute(key=key, name="is_support", value=True)
 
     def nodes_supports(self, keys=None):
         """
@@ -77,70 +51,47 @@ class CompressionNetwork(Network):
 
         return self.nodes_attribute(name="is_support", value=True, keys=keys)
 
-    def supports(self, keys=None):
+    def nodes_free(self):
         """
-        Gets or sets the node keys where a support has been assigned.
-
-        TODO: Currently ambiguous method!
+        The keys of the nodes where there is no support assigned.
         """
-        if keys is None:
-            return self.nodes_where({"is_support": True})
+        return self.nodes_where({"is_support": False})
 
-        return self.nodes_attribute(name="is_support", value=True, keys=keys)
+    def edge_forcedensity(self, key, q=None):
+        """
+        Gets or sets the force density on a single edge.
+        """
+        return self.edge_attribute(name="q", value=q, key=key)
 
-    def force_densities(self, value=None, keys=None):
+    def edges_forcedensities(self, q=None, keys=None):
         """
         Gets or sets the force densities on a list of edges.
         """
-        return self.edges_attribute(name="q", value=value, keys=keys)
+        return self.edges_attribute(name="q", value=q, keys=keys)
 
-    def force_density(self, key, value=None):
-        """
-        Gets or sets the force density on a single edge.
-        """
-        return self.edge_attribute(name="q", value=value, key=key)
-
-    def edge_forcedensity(self, key, forcedensity=None):
-        """
-        Gets or sets the force density on a single edge.
-        """
-        return self.edge_attribute(name="q", value=forcedensity, key=key)
-
-    def node_load(self, node, load=None):
+    def node_load(self, key, load=None):
         """
         Gets or sets a load to the nodes of the network.
         """
-        return self.node_attributes(key=node, names=("px", "py", "pz"), values=load)
+        return self.node_attributes(key=key, names=("px", "py", "pz"), values=load)
 
-    def node_loads(self, load=None, keys=None):
+    def nodes_loads(self, load=None, keys=None):
         """
         Gets or sets a load to the nodes of the network.
         """
         return self.nodes_attributes(names=("px", "py", "pz"), values=load, keys=keys)
 
-    def applied_load(self, load=None, keys=None):
-        """
-        Gets or sets a load to the nodes of the network.
-        """
-        return self.nodes_attributes(names=("px", "py", "pz"), values=load, keys=keys)
-
-    def residual_forces(self, keys=None):
+    def nodes_residual(self, keys=None):
         """
         Gets the residual forces of the nodes of the network.
         """
         return self.nodes_attributes(names=("rx", "ry", "rz"), keys=keys)
 
-    def residual_force(self, key):
+    def node_residual(self, key):
         """
         Gets the residual force of a single node of the network.
         """
         return self.node_attributes(key=key, names=("rx", "ry", "rz"))
-
-    def edge_forces(self, keys=None):
-        """
-        Gets the forces at the edges of the network.
-        """
-        return self.edges_attribute(keys=keys, name="force")
 
     def edge_force(self, key):
         """
@@ -148,37 +99,8 @@ class CompressionNetwork(Network):
         """
         return self.edge_attribute(key=key, name="force")
 
-    def cantilevered_nodes(self):
+    def edges_forces(self, keys=None):
         """
-        Gets the keys of all the support-free leaf nodes.
+        Gets the forces on the edges of the network.
         """
-        for key in set(self.leaves()) - set(self.supports()):
-            yield key
-
-    def cantilevered_edges(self):
-        """
-        Gets the keys of the edges which are connected only to another edge.
-        """
-        for node in self.cantilevered_nodes():
-            edges = self.connected_edges(node)
-            if len(edges) == 1:
-                yield edges.pop()
-
-    def non_cantilevered_edges(self):
-        """
-        Gets the keys of the edges which are connected to more than one edge.
-        """
-        for edge in set(self.edges()) - set(self.cantilevered_edges()):
-            yield edge
-
-    def add_support(self, node):
-        """
-        Add a support to a node of the network.
-        """
-        self.node_attribute(key=node, name="is_support", value=True)
-
-    def add_load(self, node, load):
-        """
-        Apply a load to a node of the network.
-        """
-        return self.node_attributes(key=node, names=("px", "py", "pz"), values=load)
+        return self.edges_attribute(keys=keys, name="force")
