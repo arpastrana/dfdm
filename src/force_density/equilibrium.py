@@ -9,7 +9,7 @@ from compas.numerical import connectivity_matrix
 # Initial parameters
 # ==========================================================================
 
-class EquilibriumModel:
+class EquilibriumStructure:
     def __init__(self, network):
         self._network = network
 
@@ -68,7 +68,7 @@ class EquilibriumModel:
         Returns a list with the keys of the anchored nodes.
         """
         if not self._free_nodes:
-            self._free_nodes = [self.node_index[node] for node in self.network.free_nodes()]
+            self._free_nodes = [self.node_index[node] for node in self.network.nodes_free()]
         return self._free_nodes
 
     @property
@@ -77,7 +77,7 @@ class EquilibriumModel:
         Returns a list with the keys of the anchored nodes.
         """
         if not self._fixed_nodes:
-            self._fixed_nodes = [self.node_index[node] for node in self.network.supports()]
+            self._fixed_nodes = [self.node_index[node] for node in self.network.nodes_supports()]
         return self._fixed_nodes
 
     @property
@@ -101,14 +101,12 @@ class EquilibriumModel:
 # ==========================================================================
 
 
-class EquilibriumSolver:
+class EquilibriumModel:
     """
     The calculator.
     """
     def __init__(self, network):
-        model = EquilibriumModel(network)
-        self.model = model
-        self.structure = model
+        self.structure = EquilibriumStructure(network)
 
     def _edges_lengths(self, xyz):
         connectivity = self.structure.connectivity
@@ -160,15 +158,17 @@ class EquilibriumSolver:
         lengths = self._edges_lengths(xyz_eq)
         forces = self._edges_forces(q, lengths)
 
-        return EquilibriumState(xyz=xyz_eq, residuals=residuals, lengths=lengths, forces=forces, forcedensities=q)
+        return EquilibriumState(xyz=xyz_eq,
+                                residuals=residuals,
+                                lengths=lengths,
+                                forces=forces,
+                                forcedensities=q)
 
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
 
-
 # TODO: A method that reindexes state arrays to match network indexing
-
 @dataclass
 class EquilibriumState:
     xyz: np.ndarray
@@ -177,22 +177,22 @@ class EquilibriumState:
     forces: np.ndarray
     forcedensities: np.ndarray
 
-
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
 
 def fdm(network):
-
+    """
+    Compute a network in a state of static equilibrium using the force density method.
+    """
     # get parameters
-    q = np.array(network.force_densities(), dtype=np.float64)
-    loads = np.array(list(network.node_loads()), dtype=np.float64)
-    xyz = np.array(list(network.node_xyz()), dtype=np.float64)
+    q = np.array(network.edges_forcedensities(), dtype=np.float64)
+    loads = np.array(network.nodes_loads(), dtype=np.float64)
+    xyz = np.array(network.nodes_coordinates(), dtype=np.float64)
 
     # compute static equilibrium
-    # model = EquilibriumModel(network)
-    solver = EquilibriumSolver(network)  # model can be instantiated in solver
-    eq_state = solver(q, loads, xyz)
+    model = EquilibriumModel(network)  # model can be instantiated in solver
+    eq_state = model(q, loads, xyz)
 
     # update equilibrium state in network copy
     return updated_network(network, eq_state)  # Network.update(eqstate)
@@ -235,18 +235,17 @@ def updated_network(network, eq_state):
 # Constrained fdm
 # ==========================================================================
 
-
 def constrained_fdm(network, optimizer, loss, goals, bounds, maxiter, tol):
 
     # optimizer works
     q = optimizer.minimize(network, loss, goals, bounds, maxiter, tol)
 
     # get parameters
-    loads = np.array(list(network.node_loads()), dtype=np.float64)
-    xyz = np.array(list(network.node_xyz()), dtype=np.float64)
+    loads = np.array(network.nodes_loads(), dtype=np.float64)
+    xyz = np.array(network.nodes_coordinates(), dtype=np.float64)
 
     # compute static equilibrium
-    solver = EquilibriumSolver(network)  # model can be instantiated in solver
+    solver = EquilibriumModel(network)  # model can be instantiated in solver
     eq_state = solver(q, loads, xyz)
 
     # update equilibrium state in network copy

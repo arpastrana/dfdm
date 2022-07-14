@@ -27,7 +27,7 @@ class Goal:
         return self._key
 
     @abstractmethod
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         Computes the current value of the prediction value.
         """
@@ -41,9 +41,9 @@ class Goal:
         raise NotImplementedError
 
     @abstractmethod
-    def index(self, model):
+    def index(self, structure):
         """
-        The index of the goal key in the canonical ordering of the equilibrium model.
+        The index of the goal key in the canonical ordering of the equilibrium structure.
         """
         raise NotImplementedError
 
@@ -55,16 +55,16 @@ class PointGoal(Goal):
     def __init__(self, node_key, point):
         super(PointGoal, self).__init__(key=node_key, target=point)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The current xyz coordinates of the node in a network.
         """
-        index = self.index(model)
+        index = self.index(structure)
         return eq_state.xyz[index, :]
 
     def target(self, prediction):
@@ -80,16 +80,16 @@ class LineGoal(Goal):
     def __init__(self, node_key, line):
         super(LineGoal, self).__init__(key=node_key, target=line)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The current xyz coordinates of the node in a network.
         """
-        index = self.index(model)
+        index = self.index(structure)
         return eq_state.xyz[index, :]
 
     def target(self, prediction):
@@ -106,16 +106,16 @@ class PlaneGoal(Goal):
     def __init__(self, node_key, plane):
         super(PlaneGoal, self).__init__(key=node_key, target=plane)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The current xyz coordinates of the node in a network.
         """
-        index = self.index(model)
+        index = self.index(structure)
         return eq_state.xyz[index, :]
 
     def target(self, prediction):
@@ -133,14 +133,14 @@ class LengthGoal(Goal):
     def __init__(self, edge_key, length):
         super(LengthGoal, self).__init__(key=edge_key, target=length)
 
-    def index(self, model):
-        return model.edge_index[self.key]
+    def index(self, structure):
+        return structure.edge_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The current edge length.
         """
-        index = self.index(model)
+        index = self.index(structure)
         return eq_state.lengths[index]
 
     def target(self, prediction):
@@ -157,16 +157,16 @@ class ResidualVectorGoal(Goal):
     def __init__(self, node_key, vector):
         super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The residual at the the predicted node of the network.
         """
-        index = self.index(model)
+        index = self.index(structure)
         return eq_state.residuals[index, :]
 
     def target(self, prediction):
@@ -183,12 +183,12 @@ class ResidualForceGoal(Goal):
         assert force >= 0.0
         super(ResidualForceGoal, self).__init__(key=node_key, target=force)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The residual at the the predicted node of the network.
         """
@@ -204,7 +204,6 @@ class ResidualForceGoal(Goal):
 class ResidualDirectionGoal(Goal):
     """
     Make the residual force in a network to match the direction of a vector.
-    TODO: How to make l2 norm into cosine distance?
 
     Another effective proxy for cosine distance can be obtained by
     L2 normalisation of the vectors, followed by the application of normal
@@ -220,16 +219,16 @@ class ResidualDirectionGoal(Goal):
     def __init__(self, node_key, vector):
         super(ResidualDirectionGoal, self).__init__(key=node_key, target=vector)
 
-    def index(self, model):
+    def index(self, structure):
         """
         """
-        return model.node_index[self.key]
+        return structure.node_index[self.key]
 
-    def prediction(self, eq_state, model):
+    def prediction(self, eq_state, structure):
         """
         The residual at the the predicted node of the network.
         """
-        index = self.index(model)
+        index = self.index(structure)
         residual = eq_state.residuals[index, :]
         return residual / np.linalg.norm(residual)  # unitized residual
 
@@ -237,66 +236,3 @@ class ResidualDirectionGoal(Goal):
         """
         """
         return self._target / np.linalg.norm(self._target)
-
-
-if __name__ == "__main__":
-
-    from compas.colors import Color
-    from compas.geometry import Line
-    from compas.geometry import add_vectors
-    from compas_view2.app import App
-
-    from force_density.equilibrium import fdm
-    from force_density.equilibrium import constrained_fdm
-    from force_density.datastructures import CompressionNetwork
-    from force_density.losses import squared_loss
-    from force_density.optimization import SLSQP
-
-
-    network = CompressionNetwork()
-
-    network.add_node(key=0, x=1.0, y=0.0, z=0.0)
-    network.add_node(key=1, x=1.5, y=2.5, z=0.0)
-    network.add_edge(0, 1)
-
-    network.add_support(0)
-    network.add_load(1, [0.0, 0.0, -2.0])
-
-    network.force_density((0, 1), -1)
-
-    network = fdm(network)
-
-    print(f"Edge length: {network.edge_length(0, 1)}")
-    print(f"Edge force: {network.edge_force((0, 1))}")
-
-    residual = network.residual_force(0)
-    print(f"Node residual: {residual}")
-
-    goals = []
-    goal = ResidualDirectionGoal(node_key=0, vector=[0.0, 0.0, -1.0])
-    goals.append(goal)
-
-    network = constrained_fdm(network,
-                              optimizer=SLSQP(),
-                              loss=squared_loss,
-                              goals=goals,
-                              bounds=(-np.inf, 0.0),
-                              maxiter=200,
-                              tol=1e-9)
-
-    viewer = App(width=1600, height=900)
-
-    # equilibrated arch
-    viewer.add(network,
-               show_vertices=True,
-               pointsize=12.0,
-               show_edges=True,
-               linecolor=Color.teal(),
-               linewidth=4.0)
-
-    # support
-    pt = network.node_coordinates(0)
-    viewer.add(Line(pt, add_vectors(pt, residual)),
-               color=Color.purple())
-
-    viewer.show()
