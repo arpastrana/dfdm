@@ -1,4 +1,4 @@
-# dFDM
+# dfdm
 
 A differentiable implementation of the Force Density Method.
 This library is tailored to the solution of constrained form-finding problems.
@@ -10,8 +10,8 @@ This library is tailored to the solution of constrained form-finding problems.
 First, create a new anaconda environment and activate it:
 
 ```bash
-conda create --name fdm
-conda activate fdm
+conda create --name dfdm
+conda activate dfdm
 ```
 
 Then, install `compas` and `compas_view`:
