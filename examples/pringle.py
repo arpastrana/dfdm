@@ -18,20 +18,20 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from force_density.datastructures import ForceDensityNetwork
+from dfdm.datastructures import ForceDensityNetwork
 
-from force_density.equilibrium import constrained_fdm
+from dfdm.equilibrium import constrained_fdm
 
-from force_density.goals import LengthGoal
-from force_density.goals import LineGoal
-from force_density.goals import PlaneGoal
-from force_density.goals import ResidualForceGoal
-from force_density.goals import ResidualVectorGoal
-from force_density.goals import ResidualDirectionGoal
+from dfdm.goals import LengthGoal
+from dfdm.goals import LineGoal
+from dfdm.goals import PlaneGoal
+from dfdm.goals import ResidualForceGoal
+from dfdm.goals import ResidualVectorGoal
+from dfdm.goals import ResidualDirectionGoal
 
-from force_density.losses import l2_loss
+from dfdm.losses import l2_loss
 
-from force_density.optimization import SLSQP
+from dfdm.optimization import SLSQP
 
 # ==========================================================================
 # Initial parameters
@@ -159,7 +159,7 @@ def squared_distance(predictions, targets):
 
     Note
     ----
-    This loss is equivalent to force_density.losses.squared_loss, but here
+    This loss is equivalent to dfdm.losses.squared_loss, but here
     we recreate it to illustrate how the custom loss function API works.
     """
     return np.sum(np.square(predictions - targets))

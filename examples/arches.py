@@ -13,11 +13,11 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from force_density.datastructures import ForceDensityNetwork
-from force_density.equilibrium import constrained_fdm
-from force_density.goals import ResidualDirectionGoal
-from force_density.losses import squared_loss
-from force_density.optimization import SLSQP
+from dfdm.datastructures import ForceDensityNetwork
+from dfdm.equilibrium import constrained_fdm
+from dfdm.goals import ResidualDirectionGoal
+from dfdm.losses import squared_loss
+from dfdm.optimization import SLSQP
 
 # ==========================================================================
 # Initial parameters

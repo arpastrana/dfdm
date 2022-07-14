@@ -11,7 +11,7 @@ from autograd import grad
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
-from force_density.equilibrium import EquilibriumModel
+from dfdm.equilibrium import EquilibriumModel
 
 
 # ==========================================================================

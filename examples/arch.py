@@ -10,9 +10,9 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from force_density.datastructures import ForceDensityNetwork
+from dfdm.datastructures import ForceDensityNetwork
 
-from force_density.equilibrium import fdm
+from dfdm.equilibrium import fdm
 
 # ==========================================================================
 # Initial parameters
