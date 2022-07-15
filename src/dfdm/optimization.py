@@ -113,7 +113,6 @@ def collate_goals(goals, eqstate, model):
     weights = []
 
     for goal in goals:
-        # print(goal.__str__())
         pred = goal.prediction(eqstate, model.structure)
         target = goal.target(pred)
         weight = goal.weight()
@@ -122,15 +121,9 @@ def collate_goals(goals, eqstate, model):
         targets.append(np.atleast_1d(target))
         weights.append(np.atleast_1d(weight))
 
-        # print(np.atleast_1d(pred), np.atleast_1d(target), np.atleast_1d(weight))
-
-    # print(len(predictions), len(targets), len(weights))
-
     predictions = np.concatenate(predictions, axis=0)
     targets = np.concatenate(targets, axis=0)
     weights = np.concatenate(weights, axis=0)
-
-    # print(predictions.shape, targets.shape, weights.shape)
 
     return predictions, targets, weights
 
