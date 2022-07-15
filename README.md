@@ -1,6 +1,7 @@
 # dfdm
 
-A differentiable implementation of the Force Density Method.
+A differentiable implementation of the force density method (FDM).
+
 This library is tailored to the solution of constrained form-finding problems.
 
 ![](fdm_header.png)

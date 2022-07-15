@@ -265,8 +265,6 @@ class ResidualForceGoal(ResidualVectorGoal):
         The residual at the the predicted node of the network.
         """
         index = self.index(structure)
-        # residual = eq_state.residuals[index, :]
-        # residual = super(ResidualForceGoal, self).prediction(eq_state, structure)
         residual = eq_state.residuals[index, :]
         return np.linalg.norm(residual)
 
@@ -302,7 +300,6 @@ class ResidualDirectionGoal(ResidualVectorGoal):
         """
         index = self.index(structure)
         residual = eq_state.residuals[index, :]
-        # residual = super(ResidualForceGoal, self).prediction(eq_state, structure)
 
         return residual / np.linalg.norm(residual)  # unitized residual
 
