@@ -142,9 +142,7 @@ for node in network.nodes_free():
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
-    # goals.append(LengthGoal(edge, 0.75 * target_length))
     goals.append(LengthGoal(edge, target_length, weight=1.0))
-
 
 # ==========================================================================
 # Craft loss function
@@ -154,10 +152,10 @@ def squared_distance(predictions, targets, weights):
     """
     A user-defined loss function.
 
-    A valid loss function is in terms of the goals predictions and target.
-    This function *must* have `predictions` and `targets` in its signature,
-    and it should assume that `predictions` and `targets` are two vectors
-    of equal size.
+    A valid loss function is in terms of the goals' predictions, targets
+    and weights. This loss function *must* have `predictions`, `targets`
+    and `weights` as arguments in its signature, and it should assume that
+    `predictions`, `targets` and `weights` are vectors of equal length.
 
     Note
     ----
