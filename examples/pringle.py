@@ -180,18 +180,16 @@ c_network = constrained_fdm(network,
 # Print out stats
 # ==========================================================================
 
-counter = 0
-for edge in c_network.edges():
-    force = c_network.edge_force(edge)
-    if force > 0.0:
-        counter += 1
-        print(f"Tension force on edge {edge}: {round(force, 2)}")
+q = [c_network.edge_forcedensity(edge) for edge in c_network.edges()]
+f = [c_network.edge_force(edge) for edge in c_network.edges()]
+l = [c_network.edge_length(*edge) for edge in c_network.edges()]
 
-ratio = counter / c_network.number_of_edges()
-print(f"Ratio of edges in tension: {round(100.0 * ratio, 2)}")
+for name, vals in zip(("Q", "Forces", "Lengths"), (q, f, l)):
 
-fds = [c_network.edge_forcedensity(edge) for edge in c_network.edges()]
-print(f"Force density stats. Min: {round(min(fds), 2)}. Max: {round(max(fds), 2)}. Mean: {round(sum(fds) / len(fds), 2)}")
+    minv = round(min(vals), 3)
+    maxv = round(max(vals), 3)
+    meanv = round(sum(vals) / len(vals), 3)
+    print(f"{name}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
 
 # ==========================================================================
 # Visualization
@@ -243,7 +241,7 @@ for node in c_network.nodes():
 # draw applied loads
 for node in c_network.nodes():
     pt = c_network.node_coordinates(node)
-    load = network.node_load(node)
+    load = c_network.node_load(node)
     viewer.add(Line(pt, add_vectors(pt, load)),
                linewidth=4.0,
                color=Color.green().darkened())
