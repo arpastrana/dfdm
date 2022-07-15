@@ -90,8 +90,8 @@ vertical_comps = [0.1, 0.2, 0.4, 0.8, 1.6, 3.2]
 for idx, vertical_comp in enumerate(vertical_comps):
 
     goals = []
-    goals.append(ResidualDirectionGoal(0, vector=[-1.0, 0.0, -vertical_comp]))
-    goals.append(ResidualDirectionGoal(num_segments, vector=[1.0, 0.0, -vertical_comp]))
+    goals.append(ResidualDirectionGoal(0, target=[-1.0, 0.0, -vertical_comp]))
+    goals.append(ResidualDirectionGoal(num_segments, target=[1.0, 0.0, -vertical_comp]))
 
 # ==========================================================================
 # Optimization

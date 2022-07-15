@@ -15,9 +15,10 @@ class Goal:
     A base goal.
     All goal subclasses must inherit from this class.
     """
-    def __init__(self, key, target):
+    def __init__(self, key, target, weight):
         self._key = key
         self._target = target
+        self._weight = weight
 
     @property
     def key(self):
@@ -25,6 +26,13 @@ class Goal:
         The key of an element in a network.
         """
         return self._key
+
+    @abstractmethod
+    def weight(self):
+        """
+        The importance of the goal.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def prediction(self, eq_state, structure):
@@ -52,13 +60,22 @@ class PointGoal(Goal):
     """
     Make a node of a network to reach target xyz coordinates.
     """
-    def __init__(self, node_key, point):
-        super(PointGoal, self).__init__(key=node_key, target=point)
+    def __init__(self, key, target, weight=1.0):
+        super(PointGoal, self).__init__(key=key,
+                                        target=target,
+                                        weight=weight)
 
     def index(self, structure):
         """
+        The index of the goal key in a structure.
         """
         return structure.node_index[self.key]
+
+    def weight(self):
+        """
+        The importance of the goal.
+        """
+        return np.array([self._weight] * 3)
 
     def prediction(self, eq_state, structure):
         """
@@ -69,69 +86,62 @@ class PointGoal(Goal):
 
     def target(self, prediction):
         """
+        The target xyz coordinates.
         """
         return self._target
 
 
-class LineGoal(Goal):
+class LineGoal(PointGoal):
     """
     Pulls the xyz position of a node to a target line ray.
     """
-    def __init__(self, node_key, line):
-        super(LineGoal, self).__init__(key=node_key, target=line)
-
-    def index(self, structure):
-        """
-        """
-        return structure.node_index[self.key]
-
-    def prediction(self, eq_state, structure):
-        """
-        The current xyz coordinates of the node in a network.
-        """
-        index = self.index(structure)
-        return eq_state.xyz[index, :]
+    def __init__(self, key, target, weight=1.0):
+        super(LineGoal, self).__init__(key=key,
+                                       target=target,
+                                       weight=weight)
 
     def target(self, prediction):
         """
         """
         line = self._target
-        return np.array(closest_point_on_line(prediction, line), dtype=np.float64)
+        point = closest_point_on_line(prediction, line)
+
+        return np.array(point, type=np.float64)
 
 
-class PlaneGoal(Goal):
+class PlaneGoal(PointGoal):
     """
     Pulls the xyz position of a node to a target plane.
     """
-    def __init__(self, node_key, plane):
-        super(PlaneGoal, self).__init__(key=node_key, target=plane)
-
-    def index(self, structure):
-        """
-        """
-        return structure.node_index[self.key]
-
-    def prediction(self, eq_state, structure):
-        """
-        The current xyz coordinates of the node in a network.
-        """
-        index = self.index(structure)
-        return eq_state.xyz[index, :]
+    def __init__(self, key, target, weight=1.0):
+        super(PlaneGoal, self).__init__(key=key,
+                                        target=target,
+                                        weight=weight)
 
     def target(self, prediction):
         """
         """
         point = prediction
         plane = self._target
-        return np.array(closest_point_on_plane(point, plane), dtype=np.float64)
+        point = closest_point_on_plane(point, plane)
+
+        return np.array(point, dtype=np.float64)
 
 
 class LengthGoal(Goal):
     """
     Make an edge of a network to reach a certain length.
     """
-    def __init__(self, edge_key, length):
-        super(LengthGoal, self).__init__(key=edge_key, target=length)
+    def __init__(self, key, target, weight=1.0):
+        super(LengthGoal, self).__init__(key=key,
+                                         target=target,
+                                         weight=weight)
+
+    def weight(self):
+        """
+        The importance of the goal.
+        """
+        return self._weight
 
     def index(self, structure):
         return structure.edge_index[self.key]
@@ -150,17 +160,81 @@ class LengthGoal(Goal):
         return self._target
 
 
-class ResidualVectorGoal(Goal):
+class ForceGoal(Goal):
+    """
+    Make an edge of a network to reach a certain force.
+    """
+    def __init__(self, key, target, weight=1.0):
+        super(ForceGoal, self).__init__(key=key,
+                                        target=target,
+                                        weight=weight)
+
+    def weight(self):
+        """
+        The importance of the goal.
+        """
+        return self._weight
+
+    def index(self, structure):
+        return structure.edge_index[self.key]
+
+    def prediction(self, eq_state, structure):
+        """
+        The current edge length.
+        """
+        index = self.index(structure)
+        return eq_state.forces[index]
+
+    def target(self, prediction):
+        """
+        The target to strive for.
+        """
+        return self._target
+
+
+class LoadPathGoal(Goal):
+    """
+    Make an edge of a network to reach a certain load path magnitude.
+
+    The load path of an edge is the absolute value of the product of the
+    the force on the edge time its length.
+    """
+    def __init__(self, key, target, weight=1.0):
+        super(LoadPathGoal, self).__init__(key=key,
+                                           target=target,
+                                           weight=weight)
+
+    def weight(self):
+        """
+        The importance of the goal.
+        """
+        return self._weight
+
+    def index(self, structure):
+        return structure.edge_index[self.key]
+
+    def prediction(self, eq_state, structure):
+        """
+        The current edge length.
+        """
+        index = self.index(structure)
+        return np.abs(eq_state.lengths[index] * eq_state.forces[index])
+
+    def target(self, prediction):
+        """
+        The target to strive for.
+        """
+        return self._target
+
+
+class ResidualVectorGoal(PointGoal):
     """
     Make the residual force in a network to match the magnitude and direction of a vector.
     """
-    def __init__(self, node_key, vector):
-        super(ResidualVectorGoal, self).__init__(key=node_key, target=vector)
-
-    def index(self, structure):
-        """
-        """
-        return structure.node_index[self.key]
+    def __init__(self, key, target, weight=1.0):
+        super(ResidualVectorGoal, self).__init__(key=key,
+                                                 target=target,
+                                                 weight=weight)
 
     def prediction(self, eq_state, structure):
         """
@@ -169,30 +243,31 @@ class ResidualVectorGoal(Goal):
         index = self.index(structure)
         return eq_state.residuals[index, :]
 
-    def target(self, prediction):
-        """
-        """
-        return self._target
 
-
-class ResidualForceGoal(Goal):
+class ResidualForceGoal(ResidualVectorGoal):
     """
     Make the residual force in a network to match a non-negative magnitude.
     """
-    def __init__(self, node_key, force):
-        assert force >= 0.0
-        super(ResidualForceGoal, self).__init__(key=node_key, target=force)
+    def __init__(self, key, target, weight=1.0):
+        assert target >= 0.0, "Only a non-negative target force is supported!"
+        super(ResidualForceGoal, self).__init__(key=key,
+                                                target=target,
+                                                weight=weight)
 
-    def index(self, structure):
+    def weight(self):
         """
+        The importance of the goal.
         """
-        return structure.node_index[self.key]
+        return self._weight
 
     def prediction(self, eq_state, structure):
         """
         The residual at the the predicted node of the network.
         """
-        residual = eq_state.residuals[self.key, :]
+        index = self.index(structure)
+        # residual = eq_state.residuals[index, :]
+        # residual = super(ResidualForceGoal, self).prediction(eq_state, structure)
+        residual = eq_state.residuals[index, :]
         return np.linalg.norm(residual)
 
     def target(self, prediction):
@@ -201,7 +276,7 @@ class ResidualForceGoal(Goal):
         return self._target
 
 
-class ResidualDirectionGoal(Goal):
+class ResidualDirectionGoal(ResidualVectorGoal):
     """
     Make the residual force in a network to match the direction of a vector.
 
@@ -216,13 +291,10 @@ class ResidualDirectionGoal(Goal):
     potentially expensive trigonometric operations required to yield
     a proper metric.
     """
-    def __init__(self, node_key, vector):
-        super(ResidualDirectionGoal, self).__init__(key=node_key, target=vector)
-
-    def index(self, structure):
-        """
-        """
-        return structure.node_index[self.key]
+    def __init__(self, key, target, weight=1.0):
+        super(ResidualDirectionGoal, self).__init__(key=key,
+                                                    target=target,
+                                                    weight=weight)
 
     def prediction(self, eq_state, structure):
         """
@@ -230,6 +302,8 @@ class ResidualDirectionGoal(Goal):
         """
         index = self.index(structure)
         residual = eq_state.residuals[index, :]
+        # residual = super(ResidualForceGoal, self).prediction(eq_state, structure)
+
         return residual / np.linalg.norm(residual)  # unitized residual
 
     def target(self, prediction):

@@ -23,7 +23,6 @@ from dfdm.datastructures import ForceDensityNetwork
 from dfdm.equilibrium import constrained_fdm
 
 from dfdm.goals import LengthGoal
-from dfdm.goals import LineGoal
 from dfdm.goals import PlaneGoal
 from dfdm.goals import ResidualForceGoal
 from dfdm.goals import ResidualVectorGoal
@@ -32,6 +31,7 @@ from dfdm.goals import ResidualDirectionGoal
 from dfdm.losses import l2_loss
 
 from dfdm.optimization import SLSQP
+from dfdm.optimization import BFGS
 
 # ==========================================================================
 # Initial parameters
@@ -41,12 +41,12 @@ length_vault = 6.0
 width_vault = 3.0
 
 num_u = 10
-num_v = 5
+num_v = 5  # only odd numbers
 
 q_init = -0.25
 pz = -0.1
 
-rz_min = 0.25
+rz_min = 0.45
 rz_max = 2.0
 
 # ==========================================================================
@@ -131,24 +131,26 @@ rzs = rzs + rzs[0:-1][::-1]
 
 goals = []
 for rz, arch in zip(rzs, arches):
-    goals.append(ResidualForceGoal(arch[0], force=rz))
-    goals.append(ResidualForceGoal(arch[-1], force=rz))
-
-for edge in cross_edges:
-    target_length = network.edge_length(*edge)
-    goals.append(LengthGoal(edge, 0.75 * target_length))
+    goals.append(ResidualForceGoal(arch[0], target=rz, weight=100.0))
+    goals.append(ResidualForceGoal(arch[-1], target=rz, weight=100.0))
 
 for node in network.nodes_free():
     origin = network.node_coordinates(node)
     normal = [1.0, 0.0, 0.0]
-    goal = PlaneGoal(node, plane=(origin, normal))
+    goal = PlaneGoal(node, target=(origin, normal), weight=10.0)
     goals.append(goal)
+
+for edge in cross_edges:
+    target_length = network.edge_length(*edge)
+    # goals.append(LengthGoal(edge, 0.75 * target_length))
+    goals.append(LengthGoal(edge, target_length, weight=1.0))
+
 
 # ==========================================================================
 # Craft loss function
 # ==========================================================================
 
-def squared_distance(predictions, targets):
+def squared_distance(predictions, targets, weights):
     """
     A user-defined loss function.
 
@@ -162,7 +164,7 @@ def squared_distance(predictions, targets):
     This loss is equivalent to dfdm.losses.squared_loss, but here
     we recreate it to illustrate how the custom loss function API works.
     """
-    return np.sum(np.square(predictions - targets))
+    return np.sum(weights * np.square(predictions - targets))
 
 # ==========================================================================
 # Solve constrained form-finding problem
