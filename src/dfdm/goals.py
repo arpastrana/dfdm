@@ -215,7 +215,7 @@ class LoadPathGoal(Goal):
 
     def prediction(self, eq_state, structure):
         """
-        The current edge length.
+        The current edge load path.
         """
         index = self.index(structure)
         return np.abs(eq_state.lengths[index] * eq_state.forces[index])
