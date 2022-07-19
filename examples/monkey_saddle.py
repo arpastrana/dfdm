@@ -2,6 +2,9 @@ import os
 
 from math import fabs
 
+# numpy, but better
+import autograd.numpy as np
+
 # compas
 from compas.colors import Color
 from compas.colors import ColorMap
@@ -30,16 +33,18 @@ from dfdm.losses import squared_loss
 # Parameters
 # ==========================================================================
 
-n = 3  # densification of coarse mesh
+n = 5  # densification of coarse mesh
 
 px, py, pz = 0.0, 0.0, -1.0  # loads at each node
-qmin, qmax = -100.0, -0.01  # min and max force densities
+qmin, qmax = -20.0, -0.01  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
-factor_edgelength = 1.1  # edge length factor
+factor_edgelength = 0.5  # edge length factor
 
-weight_residual= 100.0  # weight for residual force goal in optimisation
+weight_residual= 10.0  # weight for residual force goal in optimisation
 weight_length = 1.0  # weight for edge length goal in optimisation
+
+alpha = 0.1  # scale of the regularization term in the loss function
 
 maxiter = 200  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
@@ -117,10 +122,12 @@ nodes = [mesh.vertex_coordinates(vkey) for vkey in mesh.vertices()]
 edges = [(u, v) for u, v in mesh.edges() if u not in supports or v not in supports]
 network0 = ForceDensityNetwork.from_nodes_and_edges(nodes, edges)
 
+print("FD network:", network0)
+
 # data
 network0.nodes_supports(supports)
 network0.nodes_loads([px, py, pz], keys=network0.nodes())
-network0.edges_forcedensities(q=-1.0)
+network0.edges_forcedensities(q=-2.0)
 
 # ==========================================================================
 # Define goals
@@ -142,12 +149,33 @@ for key in network0.nodes_supports():
     goals.append(ResidualForceGoal(key, reaction, weight=weight_residual))
 
 # ==========================================================================
+# Craft loss function
+# ==========================================================================
+
+def squared_loss_reg(predictions, targets, weights, q):
+    """
+    A user-defined loss function.
+
+    A valid loss function is in terms of the force densities `q`, and the
+    goals' predictions, targets and weights. This loss function *must* have
+    `predictions`, `targets`, `weights` and `force_densities` as arguments
+    in its signature.
+
+    Note
+    ----
+    This loss is equivalent to dfdm.losses.squared_loss, but here
+    we recreate it to illustrate how the custom loss function API works.
+    """
+    reg = np.sum(np.square(q))
+    return np.sum(weights * np.square(predictions - targets)) + alpha * reg
+
+# ==========================================================================
 # Solve constrained form-finding problem
 # ==========================================================================
 
 network = constrained_fdm(network0,
                           optimizer=SLSQP(),
-                          loss=squared_loss,
+                          loss=squared_loss_reg,
                           goals=goals,
                           bounds=(qmin, qmax),
                           maxiter=maxiter,
@@ -161,7 +189,7 @@ q = [network.edge_forcedensity(edge) for edge in network.edges()]
 f = [network.edge_force(edge) for edge in network.edges()]
 l = [network.edge_length(*edge) for edge in network.edges()]
 
-for name, vals in zip(("Q", "Forces", "Lengths"), (q, f, l)):
+for name, vals in zip(("FDs", "Forces", "Lengths"), (q, f, l)):
 
     minv = round(min(vals), 3)
     maxv = round(max(vals), 3)
@@ -184,7 +212,7 @@ if export:
 viewer = App(width=1600, height=900, show_grid=False)
 
 # reference network
-viewer.add(network0, show_points=True, linewidth=2.0, color=Color.grey().darkened())
+viewer.add(network0, show_points=False, linewidth=1.0, color=Color.grey().darkened())
 
 # edges color map
 cmap = ColorMap.from_mpl("viridis")
