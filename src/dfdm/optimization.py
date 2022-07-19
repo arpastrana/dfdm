@@ -113,13 +113,15 @@ def collate_goals(goals, eqstate, model):
     weights = []
 
     for goal in goals:
-        pred = goal.prediction(eqstate, model.structure)
+        index = goal.index(model)
+
+        pred = goal.prediction(eqstate, index)
         target = goal.target(pred)
         weight = goal.weight()
 
-        predictions.append(np.atleast_1d(pred))
-        targets.append(np.atleast_1d(target))
-        weights.append(np.atleast_1d(weight))
+        predictions.append(pred)
+        targets.append(target)
+        weights.append(weight)
 
     predictions = np.concatenate(predictions, axis=0)
     targets = np.concatenate(targets, axis=0)
@@ -136,4 +138,4 @@ def loss_base(q, loads, xyz, model, goals, loss):
     eqstate = model(q, loads, xyz)
     predictions, targets, weights = collate_goals(goals, eqstate, model)
 
-    return loss(predictions, targets, weights)
+    return loss(predictions, targets, weights, q)
