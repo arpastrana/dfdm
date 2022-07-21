@@ -111,3 +111,5 @@ ENV/
 temp/**
 
 .DS_Store
+
+*.lprof
