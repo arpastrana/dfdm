@@ -59,7 +59,7 @@ class EquilibriumStructure:
         if self._connectivity is None:
             node_idx = self.node_index
             edges = [(node_idx[u], node_idx[v]) for u, v in self.network.edges()]
-            self._connectivity = connectivity_matrix(edges, "array")
+            self._connectivity = np.array(connectivity_matrix(edges, "list"), dtype=np.float64)
         return self._connectivity
 
     @property
