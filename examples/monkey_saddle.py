@@ -33,18 +33,18 @@ from dfdm.losses import squared_loss
 # Parameters
 # ==========================================================================
 
-n = 5  # densification of coarse mesh
+n = 3  # densification of coarse mesh
 
 px, py, pz = 0.0, 0.0, -1.0  # loads at each node
 qmin, qmax = -20.0, -0.01  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
-factor_edgelength = 0.5  # edge length factor
+factor_edgelength = 1.0  # edge length factor
 
-weight_residual= 10.0  # weight for residual force goal in optimisation
+weight_residual= 100.0  # weight for residual force goal in optimisation
 weight_length = 1.0  # weight for edge length goal in optimisation
 
-alpha = 0.1  # scale of the regularization term in the loss function
+alpha = 0.1  # scale of the L2 regularization term in the loss function
 
 maxiter = 200  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
@@ -127,7 +127,7 @@ print("FD network:", network0)
 # data
 network0.nodes_supports(supports)
 network0.nodes_loads([px, py, pz], keys=network0.nodes())
-network0.edges_forcedensities(q=-2.0)
+network0.edges_forcedensities(q=-1.0)
 
 # ==========================================================================
 # Define goals
@@ -159,7 +159,7 @@ def squared_loss_reg(predictions, targets, weights, q):
     A valid loss function is in terms of the force densities `q`, and the
     goals' predictions, targets and weights. This loss function *must* have
     `predictions`, `targets`, `weights` and `force_densities` as arguments
-    in its signature.
+    in its signature. Not all the arguments have to be used in this function.
 
     Note
     ----

@@ -47,8 +47,6 @@ pz = -0.1
 rz_min = 0.45
 rz_max = 2.0
 
-alpha = 0.1  # scale of the L2 regularization
-
 # ==========================================================================
 # Instantiate a force density network
 # ==========================================================================
@@ -134,36 +132,15 @@ for rz, arch in zip(rzs, arches):
     goals.append(ResidualForceGoal(arch[0], target=rz, weight=100.0))
     goals.append(ResidualForceGoal(arch[-1], target=rz, weight=100.0))
 
-# for node in network.nodes_free():
-#     origin = network.node_coordinates(node)
-#     normal = [1.0, 0.0, 0.0]
-#     goal = PlaneGoal(node, target=(origin, normal), weight=10.0)
-#     goals.append(goal)
+for node in network.nodes_free():
+    origin = network.node_coordinates(node)
+    normal = [1.0, 0.0, 0.0]
+    goal = PlaneGoal(node, target=(origin, normal), weight=10.0)
+    goals.append(goal)
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
     goals.append(LengthGoal(edge, target_length, weight=1.0))
-
-# ==========================================================================
-# Craft loss function
-# ==========================================================================
-
-def squared_distance(predictions, targets, weights, q):
-    """
-    A user-defined loss function.
-
-    A valid loss function is in terms of the force densities `q`, and the
-    goals' predictions, targets and weights. This loss function *must* have
-    `predictions`, `targets`, `weights` and `force_densities` as arguments
-    in its signature.
-
-    Note
-    ----
-    This loss is equivalent to dfdm.losses.squared_loss, but here
-    we recreate it to illustrate how the custom loss function API works.
-    """
-    reg = np.sum(np.square(q))
-    return np.sum(weights * np.square(predictions - targets)) + alpha * reg
 
 # ==========================================================================
 # Solve constrained form-finding problem
@@ -171,7 +148,7 @@ def squared_distance(predictions, targets, weights, q):
 
 c_network = constrained_fdm(network,
                             optimizer=SLSQP(),
-                            loss=squared_distance,
+                            loss=l2_loss,
                             goals=goals,
                             bounds=(-5.0, -0.1),
                             maxiter=200,
