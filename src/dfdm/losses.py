@@ -1,7 +1,7 @@
 import autograd.numpy as np
 
 
-def squared_loss(predictions, targets, weights, q):
+def squared_loss(predictions, targets, weights, q=None):
     """
     """
     return np.sum(weights * np.square(predictions - targets))
