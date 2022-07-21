@@ -30,9 +30,9 @@ class BaseOptimizer():
         name = self.name
 
         # array-ize parameters
-        q = np.array(network.edges_forcedensities(), dtype=np.float64)
-        loads = np.array(list(network.nodes_loads()), dtype=np.float64)
-        xyz = np.array(list(network.nodes_coordinates()), dtype=np.float64)  # probably should be xyz_fixed only
+        q = np.asarray(network.edges_forcedensities(), dtype=np.float64)
+        loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
+        xyz = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
         model = EquilibriumModel(network)  # model can be instantiated in solver
 

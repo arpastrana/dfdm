@@ -56,10 +56,10 @@ class EquilibriumStructure:
         """
         The connectivity of the network encoded as a branch-node list of lists.
         """
-        if not self._connectivity:
+        if self._connectivity is None:
             node_idx = self.node_index
             edges = [(node_idx[u], node_idx[v]) for u, v in self.network.edges()]
-            self._connectivity = connectivity_matrix(edges, "list")
+            self._connectivity = connectivity_matrix(edges, "array")
         return self._connectivity
 
     @property
@@ -127,7 +127,7 @@ class EquilibriumModel:
         fixed = self.structure.fixed_nodes
 
         # Immutable stuff
-        c_matrix = np.array(connectivity, dtype=np.int64)
+        c_matrix = connectivity
         c_fixed = c_matrix[:, fixed]
         c_free = c_matrix[:, free]
         c_free_t = np.transpose(c_free)
@@ -143,7 +143,7 @@ class EquilibriumModel:
         # syntactic sugar
         xyz_fixed = xyz[fixed, :]
 
-        # TODO: free fixed indices sorted by enumeration - needs clearer solution
+        # NOTE: free fixed indices sorted by enumeration
         indices = self.structure.freefixed_nodes
 
         # NOTE: concatenation is a workaround specific to autograd
@@ -186,12 +186,12 @@ def fdm(network):
     Compute a network in a state of static equilibrium using the force density method.
     """
     # get parameters
-    q = np.array(network.edges_forcedensities(), dtype=np.float64)
-    loads = np.array(network.nodes_loads(), dtype=np.float64)
-    xyz = np.array(network.nodes_coordinates(), dtype=np.float64)
+    q = np.asarray(network.edges_forcedensities(), dtype=np.float64)
+    loads = np.asarray(network.nodes_loads(), dtype=np.float64)
+    xyz = np.asarray(network.nodes_coordinates(), dtype=np.float64)
 
     # compute static equilibrium
-    model = EquilibriumModel(network)  # model can be instantiated in solver
+    model = EquilibriumModel(network)
     eq_state = model(q, loads, xyz)
 
     # update equilibrium state in network copy
@@ -238,15 +238,15 @@ def updated_network(network, eq_state):
 def constrained_fdm(network, optimizer, loss, goals, bounds, maxiter, tol):
 
     # optimizer works
-    q = optimizer.minimize(network, loss, goals, bounds, maxiter, tol)
+    q_opt = optimizer.minimize(network, loss, goals, bounds, maxiter, tol)
 
     # get parameters
-    loads = np.array(network.nodes_loads(), dtype=np.float64)
-    xyz = np.array(network.nodes_coordinates(), dtype=np.float64)
+    loads = np.asarray(network.nodes_loads(), dtype=np.float64)
+    xyz = np.asarray(network.nodes_coordinates(), dtype=np.float64)
 
     # compute static equilibrium
     solver = EquilibriumModel(network)  # model can be instantiated in solver
-    eq_state = solver(q, loads, xyz)
+    eq_state = solver(q_opt, loads, xyz)
 
     # update equilibrium state in network copy
     return updated_network(network, eq_state)
