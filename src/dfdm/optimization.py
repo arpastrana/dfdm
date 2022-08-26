@@ -43,7 +43,6 @@ class Optimizer():
                          model=model,
                          loads=loads,
                          xyz=xyz,
-                         # goals=gols,
                          loss=loss)
 
         grad_loss = grad(loss_f)  # grad w.r.t. first arg

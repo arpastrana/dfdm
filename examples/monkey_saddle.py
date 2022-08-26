@@ -158,6 +158,7 @@ regularizer = L2Regularizer()
 # Combine error function and regularizer into custom loss function
 # ==========================================================================
 
+
 def squared_error_reg(eqstate, model):
     """
     A user-defined loss function.
@@ -174,6 +175,7 @@ def squared_error_reg(eqstate, model):
     """
     return squared_error(eqstate, model) + alpha * regularizer(eqstate, model)
 
+
 # ==========================================================================
 # Solve constrained form-finding problem
 # ==========================================================================
@@ -184,6 +186,12 @@ network = constrained_fdm(network0,
                           bounds=(qmin, qmax),
                           maxiter=maxiter,
                           tol=tol)
+
+import matplotlib.pyplot as plt
+
+# print(squared_error.recorder.history)
+plt.plot(squared_error.recorder.history)
+plt.show()
 
 # ==========================================================================
 # Report stats

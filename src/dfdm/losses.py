@@ -6,9 +6,10 @@ import autograd.numpy as np
 # ==========================================================================
 
 class Loss:
-    def __init__(self, goals, *args, **kwargs):
+    def __init__(self, goals, record=True, *args, **kwargs):
         self.goals = goals
-        self.recorder = LossRecorder()
+        self.record = record
+        self.recorder = Recorder()
 
     def __call__(self, eqstate, model):
         raise NotImplementedError
@@ -35,6 +36,11 @@ class SquaredErrorLoss(Loss):
         for goal in self.goals:
             gstate = goal(eqstate, model)
             error += self.loss(gstate)
+
+        if self.record:
+            if isinstance(error, float):
+                self.recorder.record(error)
+
         return error
 
 
@@ -46,7 +52,12 @@ class MeanSquaredErrorLoss(SquaredErrorLoss):
     """
     def __call__(self, eqstate, model):
         squared_error = super().__call__(eqstate, model)
-        return squared_error / len(self.goals)
+        error = squared_error / len(self.goals)
+
+        if self.record:
+            self.recorder.record(error)
+
+        return error
 
 
 class PredictionLoss(Loss):
@@ -75,7 +86,9 @@ def loss_base(q, loads, xyz, model, loss):
 # Goal manager
 # ==========================================================================
 
+
 class GoalManager:
+    @staticmethod
     def goals_index(goals, model):
         """
         Compute the index of a goal based on its node or edge key.
@@ -84,6 +97,7 @@ class GoalManager:
             index = goals.index(model)
             goals._index = index
 
+    @staticmethod
     def goals_collate(goals, eqstate, model):
         """
         Collate goals attributes into vectors.
@@ -108,9 +122,10 @@ class GoalManager:
 # Recorder
 # ==========================================================================
 
-class LossRecorder:
+
+class Recorder:
     def __init__(self):
         self.history = []
 
-    def record(self, loss):
-        self.history.append(loss)
+    def record(self, value):
+        self.history.append(value)
