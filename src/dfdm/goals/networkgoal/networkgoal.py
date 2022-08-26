@@ -1,7 +1,4 @@
-import autograd.numpy as np
-
 from dfdm.goals import Goal
-from dfdm.goals import ScalarGoal
 
 
 class NetworkGoal(Goal):

@@ -1,7 +1,4 @@
-import autograd.numpy as np
-
 from dfdm.goals import Goal
-from dfdm.goals import ScalarGoal
 
 
 class EdgeGoal(Goal):
@@ -22,5 +19,3 @@ class EdgeGoal(Goal):
         The key of the node in the network.
         """
         return self._key
-
-
