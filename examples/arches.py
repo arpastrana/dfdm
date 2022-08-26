@@ -13,10 +13,10 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from dfdm.datastructures import ForceDensityNetwork
+from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import constrained_fdm
 from dfdm.goals import ResidualDirectionGoal
-from dfdm.losses import squared_loss
+from dfdm.losses import SquaredErrorLoss
 from dfdm.optimization import SLSQP
 
 # ==========================================================================
@@ -43,7 +43,7 @@ for i in range(num_segments + 1):
 # Create arch network
 # ==========================================================================
 
-network = ForceDensityNetwork()
+network = FDNetwork()
 
 for idx, point in enumerate(points):
     x, y, z = point
@@ -99,8 +99,7 @@ for idx, vertical_comp in enumerate(vertical_comps):
 
     constrained_network = constrained_fdm(network,
                                           optimizer=SLSQP(),
-                                          loss=squared_loss,
-                                          goals=goals,
+                                          loss=SquaredErrorLoss(goals),
                                           bounds=(-np.inf, 0.0),
                                           maxiter=200,
                                           tol=1e-9)

@@ -3,9 +3,6 @@ Solve a constrained force density problem using gradient-based optimization.
 """
 from math import fabs
 
-# numpy, but better
-import autograd.numpy as np
-
 # compas
 from compas.colors import Color
 from compas.colors import ColorMap
@@ -18,7 +15,7 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from dfdm.datastructures import ForceDensityNetwork
+from dfdm.datastructures import FDNetwork
 
 from dfdm.equilibrium import constrained_fdm
 
@@ -26,10 +23,9 @@ from dfdm.goals import LengthGoal
 from dfdm.goals import PlaneGoal
 from dfdm.goals import ResidualForceGoal
 
-from dfdm.losses import l2_loss
+from dfdm.losses import SquaredErrorLoss
 
 from dfdm.optimization import SLSQP
-from dfdm.optimization import BFGS
 
 # ==========================================================================
 # Initial parameters
@@ -51,7 +47,7 @@ rz_max = 2.0
 # Instantiate a force density network
 # ==========================================================================
 
-network = ForceDensityNetwork()
+network = FDNetwork()
 
 # ==========================================================================
 # Create the base geometry of the vault
@@ -142,13 +138,18 @@ for edge in cross_edges:
     goals.append(LengthGoal(edge, target=target_length, weight=1.0))
 
 # ==========================================================================
+# Create loss function
+# ==========================================================================
+
+loss = SquaredErrorLoss(goals)
+
+# ==========================================================================
 # Solve constrained form-finding problem
 # ==========================================================================
 
 c_network = constrained_fdm(network,
                             optimizer=SLSQP(),
-                            loss=l2_loss,
-                            goals=goals,
+                            loss=loss,
                             bounds=(-5.0, -0.1),
                             maxiter=200,
                             tol=1e-9)

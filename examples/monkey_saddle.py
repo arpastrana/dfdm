@@ -1,9 +1,6 @@
+# the essentials
 import os
-
 from math import fabs
-
-# numpy, but better
-import autograd.numpy as np
 
 # compas
 from compas.colors import Color
@@ -22,11 +19,13 @@ from compas_singular.datastructures import CoarseQuadMesh
 from compas_view2.app import App
 
 # force density
-from dfdm.datastructures import ForceDensityNetwork
-from dfdm.equilibrium import fdm, constrained_fdm
+from dfdm.datastructures import FDNetwork
+from dfdm.equilibrium import constrained_fdm
 from dfdm.optimization import SLSQP
-from dfdm.goals import LengthGoal, ResidualForceGoal
-from dfdm.losses import squared_loss
+from dfdm.goals import LengthGoal
+from dfdm.goals import ResidualForceGoal
+from dfdm.losses import SquaredErrorLoss
+from dfdm.regularizers import L2Regularizer
 
 
 # ==========================================================================
@@ -120,7 +119,7 @@ steps = {vkey: max_step - step for vkey, step in steps.items()}
 
 nodes = [mesh.vertex_coordinates(vkey) for vkey in mesh.vertices()]
 edges = [(u, v) for u, v in mesh.edges() if u not in supports or v not in supports]
-network0 = ForceDensityNetwork.from_nodes_and_edges(nodes, edges)
+network0 = FDNetwork.from_nodes_and_edges(nodes, edges)
 
 print("FD network:", network0)
 
@@ -152,7 +151,14 @@ for key in network0.nodes_supports():
 # Craft loss function
 # ==========================================================================
 
-def squared_loss_reg(predictions, targets, weights, q):
+squared_error = SquaredErrorLoss(goals)
+regularizer = L2Regularizer()
+
+# ==========================================================================
+# Combine error function and regularizer into custom loss function
+# ==========================================================================
+
+def squared_error_reg(eqstate, model):
     """
     A user-defined loss function.
 
@@ -166,8 +172,7 @@ def squared_loss_reg(predictions, targets, weights, q):
     This loss is equivalent to dfdm.losses.squared_loss, but here
     we recreate it to illustrate how the custom loss function API works.
     """
-    reg = np.sum(np.square(q))
-    return np.sum(weights * np.square(predictions - targets)) + alpha * reg
+    return squared_error(eqstate, model) + alpha * regularizer(eqstate, model)
 
 # ==========================================================================
 # Solve constrained form-finding problem
@@ -175,8 +180,7 @@ def squared_loss_reg(predictions, targets, weights, q):
 
 network = constrained_fdm(network0,
                           optimizer=SLSQP(),
-                          loss=squared_loss_reg,
-                          goals=goals,
+                          loss=squared_error_reg,
                           bounds=(qmin, qmax),
                           maxiter=maxiter,
                           tol=tol)
