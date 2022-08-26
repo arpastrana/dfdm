@@ -162,7 +162,7 @@ class EquilibriumModel:
                                 residuals=residuals,
                                 lengths=lengths,
                                 forces=forces,
-                                forcedensities=q)
+                                force_densities=q)
 
 # ==========================================================================
 # Initial parameters
@@ -175,7 +175,7 @@ class EquilibriumState:
     residuals: np.ndarray
     lengths: np.ndarray
     forces: np.ndarray
-    forcedensities: np.ndarray
+    force_densities: np.ndarray
 
 # ==========================================================================
 # Initial parameters
@@ -213,7 +213,7 @@ def updated_network(network, eq_state):
     lengths = eq_state.lengths.tolist()
     residuals = eq_state.residuals.tolist()
     forces = eq_state.forces.tolist()
-    forcedensities = eq_state.forcedensities.tolist()
+    forcedensities = eq_state.force_densities.tolist()
 
     # update q values and lengths on edges
     for idx, edge in enumerate(network.edges()):
