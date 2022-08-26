@@ -12,13 +12,15 @@ from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
 from dfdm.equilibrium import EquilibriumModel
+from dfdm.losses import loss_base
 
 
 # ==========================================================================
-# BaseOptimizer
+# Optimizer
 # ==========================================================================
 
-class BaseOptimizer():
+
+class Optimizer():
     def __init__(self, name):
         self.name = name
 
@@ -34,7 +36,8 @@ class BaseOptimizer():
         loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
         xyz = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
-        model = EquilibriumModel(network)  # model can be instantiated in solver
+        # NOTE: model can be instantiated in solver?
+        model = EquilibriumModel(network)
 
         # loss matters
         loss_f = partial(loss_base,
@@ -49,17 +52,15 @@ class BaseOptimizer():
         # parameter bounds
         # bounds makes a re-index from one count system to the other
         # bounds = optimization_bounds(model, bounds)
-        lb = bounds[0]
+        lb, ub = bounds
         if lb is None:
             lb = -np.inf
-
-        ub = bounds[1]
         if ub is None:
             ub = +np.inf
 
         bounds = Bounds(lb=lb, ub=ub)
 
-        # parameter constraints
+        # TODO: support for scipy non-linear constraints
         # constraints = optimization_constraints(model, constraints)
 
         # scipy optimization
@@ -85,7 +86,8 @@ class BaseOptimizer():
 # Optimizers
 # ==========================================================================
 
-class SLSQP(BaseOptimizer):
+
+class SLSQP(Optimizer):
     """
     The sequential least-squares programming optimizer.
     """
@@ -93,49 +95,9 @@ class SLSQP(BaseOptimizer):
         super(SLSQP, self).__init__(name="SLSQP")
 
 
-class BFGS(BaseOptimizer):
+class BFGS(Optimizer):
     """
     The Boyd-Fletcher-Floyd-Shannon optimizer.
     """
     def __init__(self):
         super(BFGS, self).__init__(name="BFGS")
-
-# ==========================================================================
-# Utilities
-# ==========================================================================
-
-def collate_goals(goals, eqstate, model):
-    """
-    TODO: An optimizer / solver object should collate goals.
-    """
-    predictions = []
-    targets = []
-    weights = []
-
-    for goal in goals:
-        index = goal.index(model)
-
-        pred = goal.prediction(eqstate, index)
-        target = goal.target(pred)
-        weight = goal.weight()
-
-        predictions.append(pred)
-        targets.append(target)
-        weights.append(weight)
-
-    predictions = np.concatenate(predictions, axis=0)
-    targets = np.concatenate(targets, axis=0)
-    weights = np.concatenate(weights, axis=0)
-
-    return predictions, targets, weights
-
-
-def loss_base(q, loads, xyz, model, goals, loss):
-    """
-    The master loss to minimize.
-    Takes user-defined loss as input.
-    """
-    eqstate = model(q, loads, xyz)
-    predictions, targets, weights = collate_goals(goals, eqstate, model)
-
-    return loss(predictions, targets, weights, q)
