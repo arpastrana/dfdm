@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 
 import autograd.numpy as np
 
@@ -13,6 +14,20 @@ class Goal:
         self._key = key
         self._target = target
         self._weight = weight
+
+    def __call__(self, eqstate, model):
+        """
+        Return the current goal state.
+        """
+        name = self.__class__.__name__
+        prediction = self.prediction(eqstate, self.index(model))
+        target = self.target(prediction)
+        weight = self.weight()
+
+        return GoalState(name=name,
+                         target=target,
+                         prediction=prediction,
+                         weight=weight)
 
     @abstractmethod
     def key(self):
@@ -49,6 +64,22 @@ class Goal:
         """
         raise NotImplementedError
 
+# ==========================================================================
+# Initial parameters
+# ==========================================================================
+
+
+@dataclass
+class GoalState:
+    name: str
+    target: np.ndarray
+    prediction: np.ndarray
+    weight: np.ndarray
+
+# ==========================================================================
+# Initial parameters
+# ==========================================================================
+
 
 class ScalarGoal:
     """
@@ -66,6 +97,10 @@ class ScalarGoal:
         """
         return np.atleast_1d(self._target)
 
+# ==========================================================================
+# Initial parameters
+# ==========================================================================
+
 
 class VectorGoal:
     """
@@ -75,10 +110,10 @@ class VectorGoal:
         """
         The importance of the goal
         """
-        return np.array([self._weight] * 3, dtype=np.float64)
+        return np.asarray([self._weight] * 3, dtype=np.float64)
 
     def target(self, prediction):
         """
         The target to strive for.
         """
-        return np.array(self._target, dtype=np.float64)
+        return np.asarray(self._target, dtype=np.float64)
