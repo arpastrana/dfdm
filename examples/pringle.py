@@ -112,7 +112,6 @@ for edge in network.edges():
 # Create a target distribution of residual force magnitudes
 # ==========================================================================
 
-# create linear range of reaction force goals
 assert num_v % 2 != 0
 num_steps = (num_v - 1) / 2.0
 step_size = (rz_max - rz_min) / num_steps
@@ -140,7 +139,7 @@ for node in network.nodes_free():
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
-    goals.append(LengthGoal(edge, target_length, weight=1.0))
+    goals.append(LengthGoal(edge, target=target_length, weight=1.0))
 
 # ==========================================================================
 # Solve constrained form-finding problem

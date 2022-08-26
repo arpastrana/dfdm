@@ -41,7 +41,7 @@ rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
 factor_edgelength = 1.0  # edge length factor
 
-weight_residual= 100.0  # weight for residual force goal in optimisation
+weight_residual = 100.0  # weight for residual force goal in optimisation
 weight_length = 1.0  # weight for edge length goal in optimisation
 
 alpha = 0.1  # scale of the L2 regularization term in the loss function
