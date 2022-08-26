@@ -24,10 +24,10 @@ class Optimizer():
     def __init__(self, name):
         self.name = name
 
-    def minimize(self, network, loss, goals, bounds, maxiter, tol):
+    def minimize(self, network, loss, bounds, maxiter, tol, verbose=True):
         # returns the optimization result: dataclass OptimizationResult
         """
-        Perform gradient descent with Scipy.
+        Minimize a loss function via some flavor of gradient descent.
         """
         name = self.name
 
@@ -36,7 +36,6 @@ class Optimizer():
         loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
         xyz = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
-        # NOTE: model can be instantiated in solver?
         model = EquilibriumModel(network)
 
         # loss matters
@@ -44,12 +43,12 @@ class Optimizer():
                          model=model,
                          loads=loads,
                          xyz=xyz,
-                         goals=goals,
+                         # goals=gols,
                          loss=loss)
 
         grad_loss = grad(loss_f)  # grad w.r.t. first arg
 
-        # parameter bounds
+        # TODO: parameter bounds
         # bounds makes a re-index from one count system to the other
         # bounds = optimization_bounds(model, bounds)
         lb, ub = bounds
@@ -63,9 +62,11 @@ class Optimizer():
         # TODO: support for scipy non-linear constraints
         # constraints = optimization_constraints(model, constraints)
 
+        if verbose:
+            print("Optimization started...")
+
         # scipy optimization
         start_time = time()
-        print("Optimization started...")
 
         # minimize
         res_q = minimize(fun=loss_f,
@@ -76,9 +77,10 @@ class Optimizer():
                          bounds=bounds,
                          options={"maxiter": maxiter})
         # print out
-        print(res_q.message)
-        print(f"Final loss in {res_q.nit} iterations: {res_q.fun}")
-        print(f"Elapsed time: {time() - start_time} seconds")
+        if verbose:
+            print(res_q.message)
+            print(f"Final loss in {res_q.nit} iterations: {res_q.fun}")
+            print(f"Elapsed time: {time() - start_time} seconds")
 
         return res_q.x
 
