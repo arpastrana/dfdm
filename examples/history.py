@@ -16,7 +16,7 @@ from compas.geometry import length_vector
 
 
 # dfdm
-from dfdm.optimization import Recorder
+from dfdm.optimization import OptimizationRecorder
 from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import fdm
@@ -107,7 +107,7 @@ network = fdm(network0)
 # ==========================================================================
 
 FILE_IN= os.path.abspath(os.path.join(HERE, f"{name}_history.json"))
-recorder = Recorder.from_json(FILE_IN)
+recorder = OptimizationRecorder.from_json(FILE_IN)
 
 # ==========================================================================
 # Visualization

@@ -24,7 +24,7 @@ from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import SLSQP, BFGS
-from dfdm.optimization import Recorder
+from dfdm.optimization import OptimizationRecorder
 from dfdm.goals import LengthGoal
 from dfdm.goals import ResidualForceGoal
 from dfdm.losses import MeanSquaredErrorLoss
@@ -176,7 +176,6 @@ squared_error = SquaredErrorLoss(goals)
 regularizer = L2Regularizer(alpha)
 # loss = LossContainer(terms=(squared_error, regularizer))
 
-
 class SquaredErrorRegularized():
     """
     A user-defined loss function.
@@ -202,7 +201,7 @@ squared_error_reg = SquaredErrorRegularized()
 
 recorder = None
 if record:
-    recorder = Recorder()
+    recorder = OptimizationRecorder()
 
 
 network = constrained_fdm(network0,

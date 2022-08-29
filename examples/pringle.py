@@ -3,6 +3,8 @@ Solve a constrained force density problem using gradient-based optimization.
 """
 from math import fabs
 
+import matplotlib.pyplot as plt
+
 # compas
 from compas.colors import Color
 from compas.colors import ColorMap
@@ -18,6 +20,7 @@ from compas_view2.app import App
 from dfdm.datastructures import FDNetwork
 
 from dfdm.equilibrium import constrained_fdm
+from dfdm.equilibrium import EquilibriumModel
 
 from dfdm.goals import LengthGoal
 from dfdm.goals import PlaneGoal
@@ -26,6 +29,7 @@ from dfdm.goals import ResidualForceGoal
 from dfdm.losses import SquaredErrorLoss
 
 from dfdm.optimization import SLSQP
+from dfdm.optimization import OptimizationRecorder
 
 # ==========================================================================
 # Initial parameters
@@ -42,6 +46,8 @@ pz = -0.1
 
 rz_min = 0.45
 rz_max = 2.0
+
+record = True
 
 # ==========================================================================
 # Instantiate a force density network
@@ -147,12 +153,37 @@ loss = SquaredErrorLoss(goals)
 # Solve constrained form-finding problem
 # ==========================================================================
 
+recorder = None
+if record:
+    recorder = OptimizationRecorder()
+
 c_network = constrained_fdm(network,
                             optimizer=SLSQP(),
                             loss=loss,
                             bounds=(-5.0, -0.1),
                             maxiter=200,
-                            tol=1e-9)
+                            tol=1e-9,
+                            callback=recorder)
+
+# ==========================================================================
+# Plot loss components
+# ==========================================================================
+
+model = EquilibriumModel(network)
+fig = plt.figure(dpi=150)
+y = []
+for q in recorder.history:
+    eqstate = model(q)
+    error = loss(eqstate, model)
+    y.append(error)
+plt.plot(y, label=loss.__class__.__name__)
+
+plt.xlabel("Optimization iterations")
+plt.ylabel("Loss")
+plt.yscale("log")
+plt.grid()
+plt.legend()
+plt.show()
 
 # ==========================================================================
 # Print out stats

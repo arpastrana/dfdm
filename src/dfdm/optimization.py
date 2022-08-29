@@ -117,7 +117,7 @@ class TrustRegionConstrained(Optimizer):
 # ==========================================================================
 
 
-class Recorder(Data):
+class OptimizationRecorder(Data):
     def __init__(self):
         self.history = []
 
