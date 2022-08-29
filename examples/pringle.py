@@ -47,7 +47,7 @@ pz = -0.1
 rz_min = 0.45
 rz_max = 2.0
 
-record = True
+record = False
 
 # ==========================================================================
 # Instantiate a force density network
@@ -169,21 +169,22 @@ c_network = constrained_fdm(network,
 # Plot loss components
 # ==========================================================================
 
-model = EquilibriumModel(network)
-fig = plt.figure(dpi=150)
-y = []
-for q in recorder.history:
-    eqstate = model(q)
-    error = loss(eqstate, model)
-    y.append(error)
-plt.plot(y, label=loss.__class__.__name__)
+if record:
+    model = EquilibriumModel(network)
+    fig = plt.figure(dpi=150)
+    y = []
+    for q in recorder.history:
+        eqstate = model(q)
+        error = loss(eqstate, model)
+        y.append(error)
+    plt.plot(y, label=loss.__class__.__name__)
 
-plt.xlabel("Optimization iterations")
-plt.ylabel("Loss")
-plt.yscale("log")
-plt.grid()
-plt.legend()
-plt.show()
+    plt.xlabel("Optimization iterations")
+    plt.ylabel("Loss")
+    plt.yscale("log")
+    plt.grid()
+    plt.legend()
+    plt.show()
 
 # ==========================================================================
 # Print out stats

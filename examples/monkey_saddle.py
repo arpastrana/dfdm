@@ -54,8 +54,8 @@ alpha = 0.1  # scale of the L2 regularization term in the loss function
 maxiter = 500  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
 
-record = True  # True to record optimization history of force densities
-export = True  # export result to JSON
+record = False  # True to record optimization history of force densities
+export = False  # export result to JSON
 
 # ==========================================================================
 # Import coarse mesh
@@ -225,21 +225,21 @@ if record:
 # Plot loss components
 # ==========================================================================
 
-model = EquilibriumModel(network)
-fig = plt.figure(dpi=150)
-for loss in (squared_error, regularizer, squared_error_reg):
-    y = []
-    for q in recorder.history:
-        eqstate = model(q)
-        error = loss(eqstate, model)
-        y.append(error)
-    plt.plot(y, label=loss.__class__.__name__)
+    model = EquilibriumModel(network)
+    fig = plt.figure(dpi=150)
+    for loss in (squared_error, regularizer, squared_error_reg):
+        y = []
+        for q in recorder.history:
+            eqstate = model(q)
+            error = loss(eqstate, model)
+            y.append(error)
+        plt.plot(y, label=loss.__class__.__name__)
 
-plt.xlabel("Optimization iterations")
-plt.ylabel("Loss")
-plt.yscale("log")
-plt.grid()
-plt.legend()
+    plt.xlabel("Optimization iterations")
+    plt.ylabel("Loss")
+    plt.yscale("log")
+    plt.grid()
+    plt.legend()
 plt.show()
 
 # ==========================================================================
