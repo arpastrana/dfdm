@@ -11,6 +11,8 @@ from autograd import grad
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
+from compas.data import Data
+
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.losses import loss_base
 
@@ -21,10 +23,11 @@ from dfdm.losses import loss_base
 
 
 class Optimizer():
-    def __init__(self, name):
+    def __init__(self, name, disp=False, **kwargs):
         self.name = name
+        self.disp = disp
 
-    def minimize(self, network, loss, bounds, maxiter, tol, verbose=True):
+    def minimize(self, network, loss, bounds, maxiter, tol, verbose=True, callback=None):
         # returns the optimization result: dataclass OptimizationResult
         """
         Minimize a loss function via some flavor of gradient descent.
@@ -33,19 +36,15 @@ class Optimizer():
 
         # array-ize parameters
         q = np.asarray(network.edges_forcedensities(), dtype=np.float64)
-        loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
-        xyz = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
+        # create an equilibrium model from a network
         model = EquilibriumModel(network)
 
         # loss matters
-        loss_f = partial(loss_base,
-                         model=model,
-                         loads=loads,
-                         xyz=xyz,
-                         loss=loss)
+        loss_f = partial(loss_base, model=model, loss=loss)
 
-        grad_loss = grad(loss_f)  # grad w.r.t. first arg
+        # gradient of the loss function
+        grad_loss = grad(loss_f)  # grad w.r.t. first function argument
 
         # TODO: parameter bounds
         # bounds makes a re-index from one count system to the other
@@ -74,7 +73,8 @@ class Optimizer():
                          x0=q,
                          tol=tol,
                          bounds=bounds,
-                         options={"maxiter": maxiter})
+                         callback=callback,
+                         options={"maxiter": maxiter, "disp": self.disp})
         # print out
         if verbose:
             print(res_q.message)
@@ -92,13 +92,47 @@ class SLSQP(Optimizer):
     """
     The sequential least-squares programming optimizer.
     """
-    def __init__(self):
-        super(SLSQP, self).__init__(name="SLSQP")
+    def __init__(self, **kwargs):
+        super().__init__(name="SLSQP", **kwargs)
 
 
 class BFGS(Optimizer):
     """
     The Boyd-Fletcher-Floyd-Shannon optimizer.
     """
+    def __init__(self, **kwargs):
+        super().__init__(name="BFGS", **kwargs)
+
+
+class TrustRegionConstrained(Optimizer):
+    """
+    A trust-region algorithm for constrained optimization.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="trust-constr", **kwargs)
+
+
+# ==========================================================================
+# Recorder
+# ==========================================================================
+
+
+class Recorder(Data):
     def __init__(self):
-        super(BFGS, self).__init__(name="BFGS")
+        self.history = []
+
+    def record(self, value):
+        self.history.append(value)
+
+    def __call__(self, q, *args, **kwargs):
+        self.record(q)
+
+    @property
+    def data(self):
+        data = dict()
+        data["history"] = self.history
+        return data
+
+    @data.setter
+    def data(self, data):
+        self.history = data["history"]
