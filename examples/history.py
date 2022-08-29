@@ -1,6 +1,7 @@
 # the essentials
 import os
 from math import fabs
+from math import pi
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -38,6 +39,7 @@ from compas_view2.objects import NetworkObject
 name = "monkey_saddle"
 interval = 50
 animate = True
+record = False
 
 # ==========================================================================
 # Helper functions
@@ -116,7 +118,8 @@ viewer = App(width=1600, height=900, show_grid=True)
 
 # modify view
 viewer.view.camera.zoom(-35)  # number of steps, negative to zoom out
-viewer.view.camera.rotation[2] = 0.0  # set rotation around z axis to zero
+viewer.view.camera.rotation[2] = 2 * pi / 3  # set rotation around z axis to zero
+viewer.view.camera.rotation_delta = (2 / 3) * pi / len(recorder.history)  # set rotation around z axis to zero
 
 # draw network
 viewer.add(network.copy(), show_points=False, linewidth=1.0, color=Color.grey())
@@ -139,7 +142,7 @@ for residual in residuals.values():
 
 # create update function
 if animate:
-    @viewer.on(interval=interval, frames=len(recorder.history), record=True, record_path=f"temp/{name}.gif")
+    @viewer.on(interval=interval, frames=len(recorder.history), record=record, record_path=f"temp/{name}.gif")
     def wiggle(f):
         q = np.array(recorder.history[f])
         eqstate = model(q)
@@ -157,6 +160,10 @@ if animate:
         # update all buffer objects in the view
         for _, obj in viewer.view.objects.items():
             obj.update()
+
+        viewer.view.camera.rotate(dx=1, dy=0)
+
+
 
 # show le crème
 viewer.show()

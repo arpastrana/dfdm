@@ -22,8 +22,8 @@ from compas_view2.app import App
 # force density
 from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
-from dfdm.equilibrium import constrained_fdm
-from dfdm.optimization import SLSQP
+from dfdm.equilibrium import constrained_fdm, fdm
+from dfdm.optimization import SLSQP, BFGS
 from dfdm.optimization import Recorder
 from dfdm.goals import LengthGoal
 from dfdm.goals import ResidualForceGoal
@@ -41,7 +41,7 @@ name = "monkey_saddle"
 n = 3  # densification of coarse mesh
 
 px, py, pz = 0.0, 0.0, -1.0  # loads at each node
-qmin, qmax = -20.0, -0.01  # min and max force densities
+qmin, qmax = -20.0, -0.001  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
 factor_edgelength = 1.0  # edge length factor
@@ -145,10 +145,15 @@ if export:
     print("Problem definition exported to", FILE_OUT)
 
 # ==========================================================================
+# Form-find network
+# ==========================================================================
+
+newtwork0 = fdm(network0)
+
+# ==========================================================================
 # Define goals
 # ==========================================================================
 
-# goals
 goals = []
 
 # edge lengths
@@ -170,10 +175,6 @@ for key in network0.nodes_supports():
 squared_error = SquaredErrorLoss(goals)
 regularizer = L2Regularizer(alpha)
 # loss = LossContainer(terms=(squared_error, regularizer))
-
-
-def squared_error_reg(eqstate, model):
-    return squared_error(eqstate, model) + regularizer(eqstate, model)
 
 
 class SquaredErrorRegularized():
@@ -202,6 +203,7 @@ squared_error_reg = SquaredErrorRegularized()
 recorder = None
 if record:
     recorder = Recorder()
+
 
 network = constrained_fdm(network0,
                           optimizer=SLSQP(),
@@ -299,10 +301,6 @@ viewer.add(network,
 for node in network.nodes():
 
     pt = network.node_coordinates(node)
-
-    # draw lines betwen subject and target nodes
-    target_pt = network0.node_coordinates(node)
-    viewer.add(Line(target_pt, pt), linewidth=1.0, color=Color.grey().lightened())
 
     # draw residual forces
     residual = network.node_residual(node)
