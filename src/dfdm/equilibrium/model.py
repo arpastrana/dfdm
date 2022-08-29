@@ -15,6 +15,8 @@ class EquilibriumModel:
     """
     def __init__(self, network):
         self.structure = EquilibriumStructure(network)
+        self.loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
+        self.xyz0 = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
     def _edges_lengths(self, xyz):
         connectivity = self.structure.connectivity
@@ -24,15 +26,18 @@ class EquilibriumModel:
         # TODO: is there a bug in edge forces?
         return q * lengths
 
-    def _nodes_residuals(self, q, loads, xyz):
+    def _nodes_residuals(self, q, xyz):
         connectivity = self.structure.connectivity
+        loads = self.loads
         return loads - np.transpose(connectivity) @ np.diag(q) @ connectivity @ xyz
 
-    def _nodes_positions(self, q, loads, xyz):
+    def _nodes_positions(self, q):
         # convenience shorthands
         connectivity = self.structure.connectivity
         free = self.structure.free_nodes
         fixed = self.structure.fixed_nodes
+        loads = self.loads
+        xyz = self.xyz0
 
         # Immutable stuff
         c_matrix = connectivity
@@ -57,12 +62,12 @@ class EquilibriumModel:
         # NOTE: concatenation is a workaround specific to autograd
         return np.concatenate((xyz_free, xyz_fixed))[indices]
 
-    def __call__(self, q, loads, xyz):
+    def __call__(self, q):
         """
         Compute an equilibrium state using the force density method.
         """
-        xyz_eq = self._nodes_positions(q, loads, xyz)
-        residuals = self._nodes_residuals(q, loads, xyz_eq)
+        xyz_eq = self._nodes_positions(q)
+        residuals = self._nodes_residuals(q, xyz_eq)
         lengths = self._edges_lengths(xyz_eq)
         forces = self._edges_forces(q, lengths)
 

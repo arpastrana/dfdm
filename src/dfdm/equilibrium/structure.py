@@ -82,7 +82,7 @@ class EquilibriumStructure:
     def freefixed_nodes(self):
         """
         A list with the node keys of all the nodes sorted by their node index.
-        TODO: this method must be more transparent / clearer.
+        TODO: this method must be refactored to be more transparent.
         """
         if not self._freefixed_nodes:
             freefixed_nodes = self.free_nodes + self._fixed_nodes
