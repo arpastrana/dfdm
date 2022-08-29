@@ -6,5 +6,8 @@ class Regularizer:
 
 
 class L2Regularizer(Regularizer):
+    def __init__(self, alpha):
+        self.alpha = alpha
+
     def __call__(self, eqstate, model):
-        return np.sum(np.square(eqstate.force_densities))
+        return self.alpha * np.sum(np.square(eqstate.force_densities))
