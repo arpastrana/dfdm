@@ -6,10 +6,8 @@ import autograd.numpy as np
 # ==========================================================================
 
 class Loss:
-    def __init__(self, goals, record=True, *args, **kwargs):
+    def __init__(self, goals, *args, **kwargs):
         self.goals = goals
-        self.record = record
-        self.recorder = Recorder()
 
     def __call__(self, eqstate, model):
         raise NotImplementedError
@@ -37,10 +35,6 @@ class SquaredErrorLoss(Loss):
             gstate = goal(eqstate, model)
             error += self.loss(gstate)
 
-        if self.record:
-            if isinstance(error, float):
-                self.recorder.record(error)
-
         return error
 
 
@@ -54,9 +48,6 @@ class MeanSquaredErrorLoss(SquaredErrorLoss):
         squared_error = super().__call__(eqstate, model)
         error = squared_error / len(self.goals)
 
-        if self.record:
-            self.recorder.record(error)
-
         return error
 
 
@@ -67,19 +58,17 @@ class PredictionLoss(Loss):
     def __call__(gstate):
         return gstate.prediction
 
-
 # ==========================================================================
 # Base loss
 # ==========================================================================
 
 
-def loss_base(q, loads, xyz, model, loss):
+def loss_base(q, model, loss):
     """
     The master loss to minimize.
     Takes user-defined loss as input.
     """
-    eqstate = model(q, loads, xyz)
-
+    eqstate = model(q)
     return loss(eqstate, model)
 
 # ==========================================================================
@@ -117,15 +106,3 @@ class GoalManager:
         weights = np.concatenate(weights, axis=0)
 
         return predictions, targets, weights
-
-# ==========================================================================
-# Recorder
-# ==========================================================================
-
-
-class Recorder:
-    def __init__(self):
-        self.history = []
-
-    def record(self, value):
-        self.history.append(value)
