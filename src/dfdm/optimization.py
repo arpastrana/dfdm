@@ -14,7 +14,6 @@ from scipy.optimize import Bounds
 from compas.data import Data
 
 from dfdm.equilibrium import EquilibriumModel
-from dfdm.losses import loss_base
 
 
 # ==========================================================================
@@ -41,10 +40,10 @@ class Optimizer():
         model = EquilibriumModel(network)
 
         # loss matters
-        loss_f = partial(loss_base, model=model, loss=loss)
+        loss = partial(loss, model=model)
 
         # gradient of the loss function
-        grad_loss = grad(loss_f)  # grad w.r.t. first function argument
+        grad_loss = grad(loss)  # grad w.r.t. first function argument
 
         # TODO: parameter bounds
         # bounds makes a re-index from one count system to the other
@@ -67,7 +66,7 @@ class Optimizer():
         start_time = time()
 
         # minimize
-        res_q = minimize(fun=loss_f,
+        res_q = minimize(fun=loss,
                          jac=grad_loss,
                          method=name,
                          x0=q,
