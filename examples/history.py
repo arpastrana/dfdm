@@ -21,15 +21,9 @@ from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import fdm
 from dfdm.equilibrium import network_update
-from dfdm.equilibrium import network_updated
-from dfdm.goals import LengthGoal
-from dfdm.goals import ResidualForceGoal
-from dfdm.losses import SquaredErrorLoss
-from dfdm.regularizers import L2Regularizer
 
 # compas view
 from compas_view2.app import App
-from compas_view2.objects import NetworkObject
 
 
 # ==========================================================================
@@ -39,7 +33,7 @@ from compas_view2.objects import NetworkObject
 name = "monkey_saddle"
 interval = 50
 animate = True
-record = False
+record = True
 
 # ==========================================================================
 # Helper functions

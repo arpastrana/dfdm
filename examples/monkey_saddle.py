@@ -1,6 +1,7 @@
 # the essentials
 import os
 from math import fabs
+import numpy as np
 import matplotlib.pyplot as plt
 
 # compas
@@ -23,14 +24,16 @@ from compas_view2.app import App
 from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
-from dfdm.optimization import SLSQP, BFGS
+from dfdm.optimization import SLSQP
 from dfdm.optimization import OptimizationRecorder
 from dfdm.goals import LengthGoal
 from dfdm.goals import ResidualForceGoal
-from dfdm.losses import MeanSquaredErrorLoss
-from dfdm.losses import SquaredErrorLoss
-from dfdm.regularizers import L2Regularizer
-
+from dfdm.goals import NetworkLoadPathGoal
+from dfdm.losses import MeanSquaredError
+from dfdm.losses import PredictionError
+from dfdm.losses import SquaredError
+from dfdm.losses import Loss
+from dfdm.losses import L2Regularizer
 
 # ==========================================================================
 # Parameters
@@ -40,22 +43,24 @@ name = "monkey_saddle"
 
 n = 3  # densification of coarse mesh
 
+q0 = -1.0
 px, py, pz = 0.0, 0.0, -1.0  # loads at each node
-qmin, qmax = -20.0, -0.001  # min and max force densities
+qmin, qmax = -20.0, -0.01  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
 factor_edgelength = 1.0  # edge length factor
 
-weight_residual = 100.0  # weight for residual force goal in optimisation
+weight_residual = 10.0  # weight for residual force goal in optimisation
 weight_length = 1.0  # weight for edge length goal in optimisation
 
-alpha = 0.1  # scale of the L2 regularization term in the loss function
+alpha = 0.1  # weight of the L2 regularization term in the loss function
+alpha_lp = 0.01   # weight of the total load path minimization goal
 
 maxiter = 500  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
 
 record = True  # True to record optimization history of force densities
-export = False  # export result to JSON
+export = True  # export result to JSON
 
 # ==========================================================================
 # Import coarse mesh
@@ -133,7 +138,7 @@ print("FD network:", network0)
 # data
 network0.nodes_supports(supports)
 network0.nodes_loads([px, py, pz], keys=network0.nodes())
-network0.edges_forcedensities(q=-1.0)
+network0.edges_forcedensities(q=q0)
 
 # ==========================================================================
 # Export FD network with problem definition
@@ -150,50 +155,42 @@ if export:
 
 network0 = fdm(network0)
 
+q = [network0.edge_forcedensity(edge) for edge in network0.edges()]
+f = [network0.edge_force(edge) for edge in network0.edges()]
+
+print(f"Load path: {round(np.dot(np.array(q).T, np.array(f)), 3)}")
+
 # ==========================================================================
 # Define goals
 # ==========================================================================
 
-goals = []
+goals_a = []
 
 # edge lengths
 for edge in network0.edges():
     current_length = network0.edge_length(*edge)
     goal = LengthGoal(edge, factor_edgelength * current_length, weight=weight_length)
-    goals.append(goal)
+    goals_a.append(goal)
 
 # reaction forces
 for key in network0.nodes_supports():
     step = steps[key]
     reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
-    goals.append(ResidualForceGoal(key, reaction, weight=weight_residual))
+    goals_a.append(ResidualForceGoal(key, reaction, weight=weight_residual))
+
+# global loadpath goal
+goals_b = []
+load_path = NetworkLoadPathGoal()
+goals_b.append(load_path)
 
 # ==========================================================================
-# Combine error function and regularizer into custom loss function
+# Combine error functions and regularizer into custom loss function
 # ==========================================================================
 
-squared_error = SquaredErrorLoss(goals)
-regularizer = L2Regularizer(alpha)
-# loss = LossContainer(terms=(squared_error, regularizer))
-
-class SquaredErrorRegularized():
-    """
-    A user-defined loss function.
-
-    A valid loss function is in terms of the force densities `q`, and the
-    goals' predictions, targets and weights. This loss function *must* have
-    `predictions`, `targets`, `weights` and `force_densities` as arguments
-    in its signature. Not all the arguments have to be used in this function.
-
-    Note
-    ----
-    This loss is equivalent to dfdm.losses.squared_loss, but here
-    we recreate it to illustrate how the custom loss function API works.
-    """
-    def __call__(self, eqstate, model):
-        return squared_error(eqstate, model) + regularizer(eqstate, model)
-
-squared_error_reg = SquaredErrorRegularized()
+squared_error = SquaredError(goals_a, alpha=1.0)
+loadpath_error = PredictionError(goals_b, alpha=alpha_lp)
+regularizer = L2Regularizer(alpha=alpha)
+loss = Loss(squared_error, loadpath_error, regularizer)
 
 # ==========================================================================
 # Solve constrained form-finding problem
@@ -203,10 +200,9 @@ recorder = None
 if record:
     recorder = OptimizationRecorder()
 
-
 network = constrained_fdm(network0,
                           optimizer=SLSQP(),
-                          loss=squared_error_reg,
+                          loss=loss,
                           bounds=(qmin, qmax),
                           maxiter=maxiter,
                           tol=tol,
@@ -228,13 +224,16 @@ if record and export:
 if record:
     model = EquilibriumModel(network)
     fig = plt.figure(dpi=150)
-    for loss in (squared_error, regularizer, squared_error_reg):
+    for loss_term in [loss] + list(loss.loss_terms):
         y = []
         for q in recorder.history:
             eqstate = model(q)
-            error = loss(eqstate, model)
+            try:
+                error = loss_term(eqstate, model)
+            except:
+                error = loss_term(q, model)
             y.append(error)
-        plt.plot(y, label=loss.__class__.__name__)
+        plt.plot(y, label=loss_term.__class__.__name__)
 
     plt.xlabel("Optimization iterations")
     plt.ylabel("Loss")
@@ -260,6 +259,7 @@ q = [network.edge_forcedensity(edge) for edge in network.edges()]
 f = [network.edge_force(edge) for edge in network.edges()]
 l = [network.edge_length(*edge) for edge in network.edges()]
 
+print(f"Load path: {round(np.dot(np.array(q).T, np.array(f)), 3)}")
 for name, vals in zip(("FDs", "Forces", "Lengths"), (q, f, l)):
 
     minv = round(min(vals), 3)

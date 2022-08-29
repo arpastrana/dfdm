@@ -11,7 +11,7 @@ class NetworkLoadPathGoal(ScalarGoal, NetworkGoal):
     The load path of an edge is the absolute value of the product of the
     the force on the edge time its length.
     """
-    def __init__(self, target, weight=1.0):
+    def __init__(self, target=None, weight=1.0):
         super().__init__(key=None, target=target, weight=weight)
 
     def prediction(self, eq_state, *args, **kwargs):
