@@ -4,15 +4,12 @@ A catalogue of force density networks.
 from compas.datastructures import Network
 
 
-__all__ = ["ForceDensityNetwork"]
-
-
-class ForceDensityNetwork(Network):
+class FDNetwork(Network):
     """
     A force density network.
     """
     def __init__(self, *args, **kwargs):
-        super(ForceDensityNetwork, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.update_default_node_attributes({"x": 0.0,
                                              "y": 0.0,

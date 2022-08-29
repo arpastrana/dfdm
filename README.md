@@ -4,7 +4,7 @@ A differentiable implementation of the force density method (FDM).
 
 This library is tailored to the solution of constrained form-finding problems.
 
-![](fdm_header.png)
+![](fdm_header.gif)
 
 ## Installation
 

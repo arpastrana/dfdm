@@ -10,7 +10,7 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from dfdm.datastructures import ForceDensityNetwork
+from dfdm.datastructures import FDNetwork
 
 from dfdm.equilibrium import fdm
 
@@ -37,7 +37,7 @@ lines = Polyline(points).lines
 # Create arch
 # ==========================================================================
 
-network = ForceDensityNetwork.from_lines(lines)
+network = FDNetwork.from_lines(lines)
 
 # ==========================================================================
 # Define structural system

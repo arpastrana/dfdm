@@ -11,73 +11,74 @@ from autograd import grad
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
+from compas.data import Data
+
 from dfdm.equilibrium import EquilibriumModel
 
 
 # ==========================================================================
-# BaseOptimizer
+# Optimizer
 # ==========================================================================
 
-class BaseOptimizer():
-    def __init__(self, name):
-        self.name = name
 
-    def minimize(self, network, loss, goals, bounds, maxiter, tol):
+class Optimizer():
+    def __init__(self, name, disp=False, **kwargs):
+        self.name = name
+        self.disp = disp
+
+    def minimize(self, network, loss, bounds, maxiter, tol, verbose=True, callback=None):
         # returns the optimization result: dataclass OptimizationResult
         """
-        Perform gradient descent with Scipy.
+        Minimize a loss function via some flavor of gradient descent.
         """
         name = self.name
 
         # array-ize parameters
-        q = np.array(network.edges_forcedensities(), dtype=np.float64)
-        loads = np.array(list(network.nodes_loads()), dtype=np.float64)
-        xyz = np.array(list(network.nodes_coordinates()), dtype=np.float64)  # probably should be xyz_fixed only
+        q = np.asarray(network.edges_forcedensities(), dtype=np.float64)
 
-        model = EquilibriumModel(network)  # model can be instantiated in solver
+        # create an equilibrium model from a network
+        model = EquilibriumModel(network)
 
         # loss matters
-        loss_f = partial(loss_base,
-                         model=model,
-                         loads=loads,
-                         xyz=xyz,
-                         goals=goals,
-                         loss=loss)
+        loss = partial(loss, model=model)
 
-        grad_loss = grad(loss_f)  # grad w.r.t. first arg
+        # gradient of the loss function
+        grad_loss = grad(loss)  # grad w.r.t. first function argument
 
-        # parameter bounds
+        # TODO: parameter bounds
         # bounds makes a re-index from one count system to the other
         # bounds = optimization_bounds(model, bounds)
-        lb = bounds[0]
+        lb, ub = bounds
         if lb is None:
             lb = -np.inf
-
-        ub = bounds[1]
         if ub is None:
             ub = +np.inf
 
         bounds = Bounds(lb=lb, ub=ub)
 
-        # parameter constraints
+        # TODO: support for scipy non-linear constraints
         # constraints = optimization_constraints(model, constraints)
+
+        if verbose:
+            print("Optimization started...")
 
         # scipy optimization
         start_time = time()
-        print("Optimization started...")
 
         # minimize
-        res_q = minimize(fun=loss_f,
+        res_q = minimize(fun=loss,
                          jac=grad_loss,
                          method=name,
                          x0=q,
                          tol=tol,
                          bounds=bounds,
-                         options={"maxiter": maxiter})
+                         callback=callback,
+                         options={"maxiter": maxiter, "disp": self.disp})
         # print out
-        print(res_q.message)
-        print(f"Final loss in {res_q.nit} iterations: {res_q.fun}")
-        print(f"Elapsed time: {time() - start_time} seconds")
+        if verbose:
+            print(res_q.message)
+            print(f"Final loss in {res_q.nit} iterations: {res_q.fun}")
+            print(f"Elapsed time: {time() - start_time} seconds")
 
         return res_q.x
 
@@ -85,62 +86,52 @@ class BaseOptimizer():
 # Optimizers
 # ==========================================================================
 
-class SLSQP(BaseOptimizer):
+
+class SLSQP(Optimizer):
     """
     The sequential least-squares programming optimizer.
     """
-    def __init__(self):
-        super(SLSQP, self).__init__(name="SLSQP")
+    def __init__(self, **kwargs):
+        super().__init__(name="SLSQP", **kwargs)
 
 
-class BFGS(BaseOptimizer):
+class BFGS(Optimizer):
     """
     The Boyd-Fletcher-Floyd-Shannon optimizer.
     """
+    def __init__(self, **kwargs):
+        super().__init__(name="BFGS", **kwargs)
+
+
+class TrustRegionConstrained(Optimizer):
+    """
+    A trust-region algorithm for constrained optimization.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="trust-constr", **kwargs)
+
+
+# ==========================================================================
+# Recorder
+# ==========================================================================
+
+
+class OptimizationRecorder(Data):
     def __init__(self):
-        super(BFGS, self).__init__(name="BFGS")
+        self.history = []
 
-# ==========================================================================
-# Utilities
-# ==========================================================================
+    def record(self, value):
+        self.history.append(value)
 
-def collate_goals(goals, eqstate, model):
-    """
-    TODO: An optimizer / solver object should collate goals.
-    """
-    predictions = []
-    targets = []
-    weights = []
+    def __call__(self, q, *args, **kwargs):
+        self.record(q)
 
-    for goal in goals:
-        # print(goal.__str__())
-        pred = goal.prediction(eqstate, model.structure)
-        target = goal.target(pred)
-        weight = goal.weight()
+    @property
+    def data(self):
+        data = dict()
+        data["history"] = self.history
+        return data
 
-        predictions.append(np.atleast_1d(pred))
-        targets.append(np.atleast_1d(target))
-        weights.append(np.atleast_1d(weight))
-
-        # print(np.atleast_1d(pred), np.atleast_1d(target), np.atleast_1d(weight))
-
-    # print(len(predictions), len(targets), len(weights))
-
-    predictions = np.concatenate(predictions, axis=0)
-    targets = np.concatenate(targets, axis=0)
-    weights = np.concatenate(weights, axis=0)
-
-    # print(predictions.shape, targets.shape, weights.shape)
-
-    return predictions, targets, weights
-
-
-def loss_base(q, loads, xyz, model, goals, loss):
-    """
-    The master loss to minimize.
-    Takes user-defined loss as input.
-    """
-    eqstate = model(q, loads, xyz)
-    predictions, targets, weights = collate_goals(goals, eqstate, model)
-
-    return loss(predictions, targets, weights)
+    @data.setter
+    def data(self, data):
+        self.history = data["history"]

@@ -3,8 +3,7 @@ Solve a constrained force density problem using gradient-based optimization.
 """
 from math import fabs
 
-# numpy, but better
-import autograd.numpy as np
+import matplotlib.pyplot as plt
 
 # compas
 from compas.colors import Color
@@ -18,20 +17,19 @@ from compas.geometry import length_vector
 from compas_view2.app import App
 
 # static equilibrium
-from dfdm.datastructures import ForceDensityNetwork
+from dfdm.datastructures import FDNetwork
 
 from dfdm.equilibrium import constrained_fdm
+from dfdm.equilibrium import EquilibriumModel
 
 from dfdm.goals import LengthGoal
 from dfdm.goals import PlaneGoal
 from dfdm.goals import ResidualForceGoal
-from dfdm.goals import ResidualVectorGoal
-from dfdm.goals import ResidualDirectionGoal
 
-from dfdm.losses import l2_loss
+from dfdm.losses import SquaredErrorLoss
 
 from dfdm.optimization import SLSQP
-from dfdm.optimization import BFGS
+from dfdm.optimization import OptimizationRecorder
 
 # ==========================================================================
 # Initial parameters
@@ -49,11 +47,13 @@ pz = -0.1
 rz_min = 0.45
 rz_max = 2.0
 
+record = False
+
 # ==========================================================================
 # Instantiate a force density network
 # ==========================================================================
 
-network = ForceDensityNetwork()
+network = FDNetwork()
 
 # ==========================================================================
 # Create the base geometry of the vault
@@ -114,7 +114,6 @@ for edge in network.edges():
 # Create a target distribution of residual force magnitudes
 # ==========================================================================
 
-# create linear range of reaction force goals
 assert num_v % 2 != 0
 num_steps = (num_v - 1) / 2.0
 step_size = (rz_max - rz_min) / num_steps
@@ -142,56 +141,65 @@ for node in network.nodes_free():
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
-    goals.append(LengthGoal(edge, target_length, weight=1.0))
+    goals.append(LengthGoal(edge, target=target_length, weight=1.0))
 
 # ==========================================================================
-# Craft loss function
+# Create loss function
 # ==========================================================================
 
-def squared_distance(predictions, targets, weights):
-    """
-    A user-defined loss function.
-
-    A valid loss function is in terms of the goals' predictions, targets
-    and weights. This loss function *must* have `predictions`, `targets`
-    and `weights` as arguments in its signature, and it should assume that
-    `predictions`, `targets` and `weights` are vectors of equal length.
-
-    Note
-    ----
-    This loss is equivalent to dfdm.losses.squared_loss, but here
-    we recreate it to illustrate how the custom loss function API works.
-    """
-    return np.sum(weights * np.square(predictions - targets))
+loss = SquaredErrorLoss(goals)
 
 # ==========================================================================
 # Solve constrained form-finding problem
 # ==========================================================================
 
+recorder = None
+if record:
+    recorder = OptimizationRecorder()
+
 c_network = constrained_fdm(network,
                             optimizer=SLSQP(),
-                            loss=squared_distance,
-                            goals=goals,
+                            loss=loss,
                             bounds=(-5.0, -0.1),
                             maxiter=200,
-                            tol=1e-9)
+                            tol=1e-9,
+                            callback=recorder)
+
+# ==========================================================================
+# Plot loss components
+# ==========================================================================
+
+if record:
+    model = EquilibriumModel(network)
+    fig = plt.figure(dpi=150)
+    y = []
+    for q in recorder.history:
+        eqstate = model(q)
+        error = loss(eqstate, model)
+        y.append(error)
+    plt.plot(y, label=loss.__class__.__name__)
+
+    plt.xlabel("Optimization iterations")
+    plt.ylabel("Loss")
+    plt.yscale("log")
+    plt.grid()
+    plt.legend()
+    plt.show()
 
 # ==========================================================================
 # Print out stats
 # ==========================================================================
 
-counter = 0
-for edge in c_network.edges():
-    force = c_network.edge_force(edge)
-    if force > 0.0:
-        counter += 1
-        print(f"Tension force on edge {edge}: {round(force, 2)}")
+q = [c_network.edge_forcedensity(edge) for edge in c_network.edges()]
+f = [c_network.edge_force(edge) for edge in c_network.edges()]
+l = [c_network.edge_length(*edge) for edge in c_network.edges()]
 
-ratio = counter / c_network.number_of_edges()
-print(f"Ratio of edges in tension: {round(100.0 * ratio, 2)}")
+for name, vals in zip(("Q", "Forces", "Lengths"), (q, f, l)):
 
-fds = [c_network.edge_forcedensity(edge) for edge in c_network.edges()]
-print(f"Force density stats. Min: {round(min(fds), 2)}. Max: {round(max(fds), 2)}. Mean: {round(sum(fds) / len(fds), 2)}")
+    minv = round(min(vals), 3)
+    maxv = round(max(vals), 3)
+    meanv = round(sum(vals) / len(vals), 3)
+    print(f"{name}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
 
 # ==========================================================================
 # Visualization
@@ -243,7 +251,7 @@ for node in c_network.nodes():
 # draw applied loads
 for node in c_network.nodes():
     pt = c_network.node_coordinates(node)
-    load = network.node_load(node)
+    load = c_network.node_load(node)
     viewer.add(Line(pt, add_vectors(pt, load)),
                linewidth=4.0,
                color=Color.green().darkened())
