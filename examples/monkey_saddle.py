@@ -54,7 +54,7 @@ alpha = 0.1  # scale of the L2 regularization term in the loss function
 maxiter = 500  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
 
-record = False  # True to record optimization history of force densities
+record = True  # True to record optimization history of force densities
 export = False  # export result to JSON
 
 # ==========================================================================
@@ -148,7 +148,7 @@ if export:
 # Form-find network
 # ==========================================================================
 
-newtwork0 = fdm(network0)
+network0 = fdm(network0)
 
 # ==========================================================================
 # Define goals
@@ -216,7 +216,7 @@ network = constrained_fdm(network0,
 # Export optimization history
 # ==========================================================================
 
-if record:
+if record and export:
     FILE_OUT = os.path.join(HERE, f"../data/json/{name}_history.json")
     recorder.to_json(FILE_OUT)
     print("Optimization history exported to", FILE_OUT)
@@ -225,6 +225,7 @@ if record:
 # Plot loss components
 # ==========================================================================
 
+if record:
     model = EquilibriumModel(network)
     fig = plt.figure(dpi=150)
     for loss in (squared_error, regularizer, squared_error_reg):
@@ -240,7 +241,7 @@ if record:
     plt.yscale("log")
     plt.grid()
     plt.legend()
-plt.show()
+    plt.show()
 
 # ==========================================================================
 # Export JSON

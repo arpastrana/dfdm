@@ -24,13 +24,11 @@ class Goal:
         """
         Return the current goal state.
         """
-        name = self.__class__.__name__
         prediction = self.prediction(eqstate, self.index(model))
         target = self.target(prediction)
         weight = self.weight()
 
-        return GoalState(name=name,
-                         target=target,
+        return GoalState(target=target,
                          prediction=prediction,
                          weight=weight)
 
