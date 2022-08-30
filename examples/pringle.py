@@ -26,7 +26,8 @@ from dfdm.goals import LengthGoal
 from dfdm.goals import PlaneGoal
 from dfdm.goals import ResidualForceGoal
 
-from dfdm.losses import SquaredErrorLoss
+from dfdm.losses import Loss
+from dfdm.losses import SquaredError
 
 from dfdm.optimization import SLSQP
 from dfdm.optimization import OptimizationRecorder
@@ -147,7 +148,7 @@ for edge in cross_edges:
 # Create loss function
 # ==========================================================================
 
-loss = SquaredErrorLoss(goals)
+loss = Loss(SquaredError(goals))
 
 # ==========================================================================
 # Solve constrained form-finding problem

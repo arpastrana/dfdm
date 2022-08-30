@@ -27,6 +27,7 @@ from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import SLSQP
 from dfdm.optimization import OptimizationRecorder
 from dfdm.goals import LengthGoal
+from dfdm.goals import LineGoal
 from dfdm.goals import ResidualForceGoal
 from dfdm.goals import NetworkLoadPathGoal
 from dfdm.losses import MeanSquaredError
@@ -48,7 +49,6 @@ px, py, pz = 0.0, 0.0, -1.0  # loads at each node
 qmin, qmax = -20.0, -0.01  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
-factor_edgelength = 1.0  # edge length factor
 
 weight_residual = 10.0  # weight for residual force goal in optimisation
 weight_length = 1.0  # weight for edge length goal in optimisation
@@ -150,6 +150,49 @@ if export:
     print("Problem definition exported to", FILE_OUT)
 
 # ==========================================================================
+# Define goals
+# ==========================================================================
+
+# edge lengths
+goals_a = []
+for edge in network0.edges():
+    length = network0.edge_length(*edge)
+    goal = LengthGoal(edge, length, weight=weight_length)
+    goals_a.append(goal)
+
+# fixed node projection
+# for node in network0.nodes():
+#     if mesh.is_vertex_on_boundary(node):
+#         continue
+#     xyz = network0.node_coordinates(node)
+#     line = (xyz, add_vectors(xyz, [0.0, 0.0, 1.0]))
+#     goal = LineGoal(node, target=line, weight=weight_length)
+#     goals_a.append(goal)
+
+# reaction forces
+goals_b = []
+for key in network0.nodes_supports():
+    step = steps[key]
+    reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
+    goal = ResidualForceGoal(key, reaction, weight=weight_residual)
+    goals_b.append(goal)
+
+# global loadpath goal
+goals_c = []
+load_path = NetworkLoadPathGoal()
+goals_c.append(load_path)
+
+# ==========================================================================
+# Combine error functions and regularizer into custom loss function
+# ==========================================================================
+
+squared_error_a = SquaredError(goals_a, alpha=1.0, name="EdgeLengthGoal")
+squared_error_b = SquaredError(goals_b, alpha=1.0, name="ReactionForceGoal")
+loadpath_error = PredictionError(goals_b, alpha=alpha_lp, name="LoadPathGoal")
+regularizer = L2Regularizer(alpha=alpha)
+loss = Loss(squared_error_a, squared_error_b, loadpath_error, regularizer)
+
+# ==========================================================================
 # Form-find network
 # ==========================================================================
 
@@ -161,44 +204,13 @@ f = [network0.edge_force(edge) for edge in network0.edges()]
 print(f"Load path: {round(np.dot(np.array(q).T, np.array(f)), 3)}")
 
 # ==========================================================================
-# Define goals
-# ==========================================================================
-
-goals_a = []
-
-# edge lengths
-for edge in network0.edges():
-    current_length = network0.edge_length(*edge)
-    goal = LengthGoal(edge, factor_edgelength * current_length, weight=weight_length)
-    goals_a.append(goal)
-
-# reaction forces
-for key in network0.nodes_supports():
-    step = steps[key]
-    reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
-    goals_a.append(ResidualForceGoal(key, reaction, weight=weight_residual))
-
-# global loadpath goal
-goals_b = []
-load_path = NetworkLoadPathGoal()
-goals_b.append(load_path)
-
-# ==========================================================================
-# Combine error functions and regularizer into custom loss function
-# ==========================================================================
-
-squared_error = SquaredError(goals_a, alpha=1.0)
-loadpath_error = PredictionError(goals_b, alpha=alpha_lp)
-regularizer = L2Regularizer(alpha=alpha)
-loss = Loss(squared_error, loadpath_error, regularizer)
-
-# ==========================================================================
 # Solve constrained form-finding problem
 # ==========================================================================
 
 recorder = None
 if record:
     recorder = OptimizationRecorder()
+
 
 network = constrained_fdm(network0,
                           optimizer=SLSQP(),
@@ -233,7 +245,7 @@ if record:
             except:
                 error = loss_term(q, model)
             y.append(error)
-        plt.plot(y, label=loss_term.__class__.__name__)
+        plt.plot(y, label=loss_term.name)
 
     plt.xlabel("Optimization iterations")
     plt.ylabel("Loss")

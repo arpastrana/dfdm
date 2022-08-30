@@ -16,7 +16,8 @@ from compas_view2.app import App
 from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import constrained_fdm
 from dfdm.goals import ResidualDirectionGoal
-from dfdm.losses import SquaredErrorLoss
+from dfdm.losses import SquaredError
+from dfdm.losses import Loss
 from dfdm.optimization import SLSQP
 
 # ==========================================================================
@@ -99,7 +100,7 @@ for idx, vertical_comp in enumerate(vertical_comps):
 
     constrained_network = constrained_fdm(network,
                                           optimizer=SLSQP(),
-                                          loss=SquaredErrorLoss(goals),
+                                          loss=Loss(SquaredError(goals)),
                                           bounds=(-np.inf, 0.0),
                                           maxiter=200,
                                           tol=1e-9)
