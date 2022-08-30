@@ -7,10 +7,17 @@ from dfdm.goals import goals_state
 # Loss
 # ==========================================================================
 
-class Loss:
-    def __init__(self, goals, alpha=1.0, *args, **kwargs):
+class LossTerm:
+    def __init__(self, goals, alpha=1.0, name=None, *args, **kwargs):
         self.goals = goals
         self.alpha = alpha
+        self._name = name
+
+    @property
+    def name(self):
+        if not self._name:
+            self._name = self.__class__.__name__
+        return self._name
 
     def __call__(self, eqstate, model):
         gstate = self.goals_state(eqstate, model)
@@ -28,7 +35,7 @@ class Loss:
 # ==========================================================================
 
 
-class SquaredError(Loss):
+class SquaredError(LossTerm):
     """
     The canonical squared error.
     Measures the distance between the current and the target value of a goal.
@@ -38,7 +45,7 @@ class SquaredError(Loss):
         return np.sum(gstate.weight * np.square(gstate.prediction - gstate.target))
 
 
-class MeanSquaredError(Loss):
+class MeanSquaredError(LossTerm):
     """
     The seminal mean squared error loss.
 
@@ -49,7 +56,7 @@ class MeanSquaredError(Loss):
         return np.mean(gstate.weight * np.square(gstate.prediction - gstate.target))
 
 
-class PredictionError(Loss):
+class PredictionError(LossTerm):
     """
     You lose when you predict too much of something.
     """
@@ -63,8 +70,9 @@ class PredictionError(Loss):
 
 
 class Loss:
-    def __init__(self, *args):
+    def __init__(self, *args, name=None):
         self.loss_terms = args
+        self._name = name
 
     def __call__(self, q, model):
         eqstate = model(q)
@@ -72,3 +80,9 @@ class Loss:
         for loss in self.loss_terms:
             error += loss(eqstate, model)
         return error
+
+    @property
+    def name(self):
+        if not self._name:
+            self._name = self.__class__.__name__
+        return self._name
