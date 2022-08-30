@@ -7,9 +7,11 @@ from functools import partial
 
 import autograd.numpy as np
 from autograd import grad
+from autograd import jacobian
 
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
+from scipy.optimize import NonlinearConstraint
 
 from compas.data import Data
 
@@ -22,11 +24,19 @@ from dfdm.equilibrium import EquilibriumModel
 
 
 class Optimizer():
-    def __init__(self, name, disp=False, **kwargs):
+    def __init__(self, name, disp=True, **kwargs):
         self.name = name
         self.disp = disp
 
-    def minimize(self, network, loss, bounds, maxiter, tol, verbose=True, callback=None):
+    def constraints(self, constraints, model):
+        """
+        Returns the defined constraints in a format amenable to `scipy.minimize`.
+        """
+        if constraints:
+            print(f"Warning! {self.__class__.__name__} does not support constraints. I am ignoring them.")
+        return ()
+
+    def minimize(self, network, loss, bounds=(None, None), constraints=None, maxiter=100, tol=1e-6, verbose=True, callback=None):
         # returns the optimization result: dataclass OptimizationResult
         """
         Minimize a loss function via some flavor of gradient descent.
@@ -57,10 +67,10 @@ class Optimizer():
         bounds = Bounds(lb=lb, ub=ub)
 
         # TODO: support for scipy non-linear constraints
-        # constraints = optimization_constraints(model, constraints)
+        constraints = self.constraints(constraints, model)
 
         if verbose:
-            print("Optimization started...")
+            print(f"Optimization with {self.name} started...")
 
         # scipy optimization
         start_time = time()
@@ -72,6 +82,7 @@ class Optimizer():
                          x0=q,
                          tol=tol,
                          bounds=bounds,
+                         constraints=constraints,
                          callback=callback,
                          options={"maxiter": maxiter, "disp": self.disp})
         # print out
@@ -87,6 +98,14 @@ class Optimizer():
 # ==========================================================================
 
 
+class BFGS(Optimizer):
+    """
+    The Boyd-Fletcher-Floyd-Shannon optimizer.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="BFGS", **kwargs)
+
+
 class SLSQP(Optimizer):
     """
     The sequential least-squares programming optimizer.
@@ -94,13 +113,29 @@ class SLSQP(Optimizer):
     def __init__(self, **kwargs):
         super().__init__(name="SLSQP", **kwargs)
 
+    def constraints(self, constraints, model):
+        if not constraints:
+            return
 
-class BFGS(Optimizer):
-    """
-    The Boyd-Fletcher-Floyd-Shannon optimizer.
-    """
-    def __init__(self, **kwargs):
-        super().__init__(name="BFGS", **kwargs)
+        clist = []
+        for constraint in constraints:
+
+            fun = partial(constraint, model=model)
+            type = "eq"
+            cfuns = [lambda q: constraint.bound_up - fun(q)]  # fun smaller
+
+            if constraint.bound_low != constraint.bound_up:
+                type = "ineq"
+                cfuns.append(lambda q: fun(q) - constraint.bound_low)
+
+            for cfun in cfuns:
+                cdict = dict()
+                cdict["type"] = type
+                cdict["fun"] = cfun
+                cdict["jac"] = jacobian(cfun)
+                clist.append(cdict)
+
+        return clist
 
 
 class TrustRegionConstrained(Optimizer):
@@ -110,11 +145,23 @@ class TrustRegionConstrained(Optimizer):
     def __init__(self, **kwargs):
         super().__init__(name="trust-constr", **kwargs)
 
+    def constraints(self, constraints, model):
+        if not constraints:
+            return
+
+        clist = []
+        for constraint in constraints:
+            fun = partial(constraint, model=model)
+            jac = jacobian(fun)
+            lb = constraint.bound_low
+            ub = constraint.bound_up
+            clist.append(NonlinearConstraint(fun=fun, jac=jac, lb=lb, ub=ub))
+
+        return clist
 
 # ==========================================================================
 # Recorder
 # ==========================================================================
-
 
 class OptimizationRecorder(Data):
     def __init__(self):
