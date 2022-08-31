@@ -7,6 +7,17 @@ from dfdm.equilibrium.model import EquilibriumModel
 # Form-finding
 # ==========================================================================
 
+def _fdm(network, q):
+    """
+    Compute a network in a state of static equilibrium using the force density method.
+    """
+    # compute static equilibrium
+    model = EquilibriumModel(network)
+    eq_state = model(q)
+
+    # update equilibrium state in network copy
+    return network_updated(network, eq_state)  # Network.update(eqstate)
+
 
 def fdm(network):
     """
@@ -15,29 +26,19 @@ def fdm(network):
     # get parameters
     q = np.asarray(network.edges_forcedensities(), dtype=np.float64)
 
-    # compute static equilibrium
-    model = EquilibriumModel(network)
-    eq_state = model(q)
-
-    # update equilibrium state in network copy
-    return network_updated(network, eq_state)  # Network.update(eqstate)
+    return _fdm(network, q)
 
 # ==========================================================================
 # Constrained form-finding
 # ==========================================================================
 
 
-def constrained_fdm(network, optimizer, loss, bounds, maxiter, tol, callback=None):
+def constrained_fdm(network, optimizer, loss, bounds=(None, None), constraints=None, maxiter=100, tol=1e-6, callback=None):
 
     # optimizer works
-    q_opt = optimizer.minimize(network, loss, bounds, maxiter, tol, callback=callback)
+    q_opt = optimizer.minimize(network, loss, bounds, constraints, maxiter, tol, callback=callback)
 
-    # compute static equilibrium
-    model = EquilibriumModel(network)
-    eq_state = model(q_opt)
-
-    # update equilibrium state in network copy
-    return network_updated(network, eq_state)
+    return _fdm(network, q_opt)
 
 # ==========================================================================
 # Helpers
@@ -67,13 +68,15 @@ def network_update(network, eq_state):
     forcedensities = eq_state.force_densities.tolist()
 
     # update q values and lengths on edges
-    for idx, edge in enumerate(network.edges()):
+    # for idx, edge in enumerate(network.edges()):
+    for idx, edge in network.index_uv().items():
         network.edge_attribute(edge, name="length", value=lengths[idx])
         network.edge_attribute(edge, name="force", value=forces[idx])
         network.edge_attribute(edge, name="q", value=forcedensities[idx])
 
     # update residuals on nodes
-    for idx, node in enumerate(network.nodes()):
+    for idx, node in network.index_key().items():
+    # for idx, node in enumerate(network.nodes()):
         for name, value in zip("xyz", xyz[idx]):
             network.node_attribute(node, name=name, value=value)
 
