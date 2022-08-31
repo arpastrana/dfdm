@@ -2,6 +2,7 @@
 import os
 from math import fabs
 import numpy as np
+from autograd import grad
 import matplotlib.pyplot as plt
 
 # compas
@@ -25,6 +26,7 @@ from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import SLSQP
+from dfdm.optimization import TrustRegionConstrained
 from dfdm.optimization import OptimizationRecorder
 from dfdm.goals import LengthGoal
 from dfdm.goals import LineGoal
@@ -35,6 +37,7 @@ from dfdm.losses import PredictionError
 from dfdm.losses import SquaredError
 from dfdm.losses import Loss
 from dfdm.losses import L2Regularizer
+from dfdm.constraints import LengthConstraint
 
 # ==========================================================================
 # Parameters
@@ -44,19 +47,18 @@ name = "monkey_saddle"
 
 n = 3  # densification of coarse mesh
 
-q0 = -1.0
+q0 = -1.0  # initial force density
 px, py, pz = 0.0, 0.0, -1.0  # loads at each node
 qmin, qmax = -20.0, -0.01  # min and max force densities
 rmin, rmax = 2.0, 10.0  # min and max reaction forces
 r_exp = 1.0  # reaction force variation exponent
 
-weight_residual = 10.0  # weight for residual force goal in optimisation
-weight_length = 1.0  # weight for edge length goal in optimisation
+add_constraints = True  # input constraints to the optimization problem
+length_min = 0.5  # minimum allowed edge length for length constraint
+length_max = 4.5  # maximum allowed edge length for length constraint
 
-alpha = 0.1  # weight of the L2 regularization term in the loss function
-alpha_lp = 0.01   # weight of the total load path minimization goal
-
-maxiter = 500  # optimizer maximum iterations
+optimizer = TrustRegionConstrained  # optimization algorithm
+maxiter = 200  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
 
 record = True  # True to record optimization history of force densities
@@ -150,55 +152,53 @@ if export:
     print("Problem definition exported to", FILE_OUT)
 
 # ==========================================================================
-# Define goals
-# ==========================================================================
-
-# edge lengths
-goals_a = []
-for edge in network0.edges():
-    length = network0.edge_length(*edge)
-    goal = LengthGoal(edge, length, weight=weight_length)
-    goals_a.append(goal)
-
-# fixed node projection
-# for node in network0.nodes():
-#     if mesh.is_vertex_on_boundary(node):
-#         continue
-#     xyz = network0.node_coordinates(node)
-#     line = (xyz, add_vectors(xyz, [0.0, 0.0, 1.0]))
-#     goal = LineGoal(node, target=line, weight=weight_length)
-#     goals_a.append(goal)
-
-# reaction forces
-goals_b = []
-for key in network0.nodes_supports():
-    step = steps[key]
-    reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
-    goal = ResidualForceGoal(key, reaction, weight=weight_residual)
-    goals_b.append(goal)
-
-# global loadpath goal
-goals_c = []
-load_path = NetworkLoadPathGoal()
-goals_c.append(load_path)
-
-# ==========================================================================
-# Combine error functions and regularizer into custom loss function
-# ==========================================================================
-
-squared_error_a = SquaredError(goals_a, alpha=1.0, name="EdgeLengthGoal")
-squared_error_b = SquaredError(goals_b, alpha=1.0, name="ReactionForceGoal")
-loadpath_error = PredictionError(goals_b, alpha=alpha_lp, name="LoadPathGoal")
-regularizer = L2Regularizer(alpha=alpha)
-loss = Loss(squared_error_a, squared_error_b, loadpath_error, regularizer)
-
-# ==========================================================================
 # Form-find network
 # ==========================================================================
 
 network0 = fdm(network0)
 
-print(f"Load path: {round(network0.load_path(), 3)}")
+# ==========================================================================
+# Report stats
+# ==========================================================================
+
+q = list(network0.edges_forcedensities())
+f = list(network0.edges_forces())
+l = list(network0.edges_lengths())
+
+print(f"Load path: {round(network0.loadpath(), 3)}")
+for iname, vals in zip(("FDs", "Forces", "Lengths"), (q, f, l)):
+
+    minv = round(min(vals), 3)
+    maxv = round(max(vals), 3)
+    meanv = round(sum(vals) / len(vals), 3)
+    print(f"{iname}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
+
+# ==========================================================================
+# Define goals
+# ==========================================================================
+
+# reaction forces
+goals = []
+for key in network0.nodes_supports():
+    step = steps[key]
+    reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
+    goal = ResidualForceGoal(key, reaction)
+    goals.append(goal)
+
+# ==========================================================================
+# Define constraints
+# ==========================================================================
+
+constraints = None
+if add_constraints:
+    constraints = [LengthConstraint(bound_low=length_min, bound_up=length_max)]
+
+# ==========================================================================
+# Combine error functions and regularizer into custom loss function
+# ==========================================================================
+
+squared_error = SquaredError(goals, name="ReactionForceGoal")
+loss = Loss(squared_error)
 
 # ==========================================================================
 # Solve constrained form-finding problem
@@ -208,14 +208,29 @@ recorder = None
 if record:
     recorder = OptimizationRecorder()
 
-
 network = constrained_fdm(network0,
-                          optimizer=SLSQP(),
+                          optimizer=optimizer(),
                           loss=loss,
-                          bounds=(qmin, qmax),
+                          constraints=constraints,
                           maxiter=maxiter,
                           tol=tol,
                           callback=recorder)
+
+# ==========================================================================
+# Report stats
+# ==========================================================================
+
+q = list(network.edges_forcedensities())
+f = list(network.edges_forces())
+l = list(network.edges_lengths())
+
+print(f"Load path: {round(network.loadpath(), 3)}")
+for iname, vals in zip(("FDs", "Forces", "Lengths"), (q, f, l)):
+
+    minv = round(min(vals), 3)
+    maxv = round(max(vals), 3)
+    meanv = round(sum(vals) / len(vals), 3)
+    print(f"{iname}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
 
 # ==========================================================================
 # Export optimization history
@@ -259,22 +274,6 @@ if export:
     FILE_OUT = os.path.join(HERE, f"../data/json/{name}_optimized.json")
     network.to_json(FILE_OUT)
     print("Form found design exported to", FILE_OUT)
-
-# ==========================================================================
-# Report stats
-# ==========================================================================
-
-q = list(network.edges_forcedensities())
-f = list(network.edges_forces())
-l = list(network.edges_lengths())
-
-print(f"Load path: {round(network.loadpath(), 3)}")
-for name, vals in zip(("FDs", "Forces", "Lengths"), (q, f, l)):
-
-    minv = round(min(vals), 3)
-    maxv = round(max(vals), 3)
-    meanv = round(sum(vals) / len(vals), 3)
-    print(f"{name}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
 
 # ==========================================================================
 # Visualization
