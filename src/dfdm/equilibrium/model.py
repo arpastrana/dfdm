@@ -28,8 +28,7 @@ class EquilibriumModel:
 
     def _nodes_residuals(self, q, xyz):
         connectivity = self.structure.connectivity
-        loads = self.loads
-        return loads - np.transpose(connectivity) @ np.diag(q) @ connectivity @ xyz
+        return self.loads - np.transpose(connectivity) @ np.diag(q) @ connectivity @ xyz
 
     def _nodes_positions(self, q):
         # convenience shorthands

@@ -48,7 +48,6 @@ class SquaredError(LossTerm):
 class MeanSquaredError(LossTerm):
     """
     The seminal mean squared error loss.
-
     Average out all errors because no single error is important enough.
     """
     @staticmethod
@@ -65,7 +64,7 @@ class PredictionError(LossTerm):
         return np.sum(gstate.prediction)
 
 # ==========================================================================
-# Loss container
+# Loss
 # ==========================================================================
 
 

@@ -1,6 +1,8 @@
 """
 A catalogue of force density networks.
 """
+from math import fabs
+
 from compas.datastructures import Network
 
 
@@ -101,3 +103,31 @@ class FDNetwork(Network):
         Gets the forces on the edges of the network.
         """
         return self.edges_attribute(keys=keys, name="force")
+
+    def edges_lengths(self, keys=None):
+        """
+        Gets the lengths on the edges of the network.
+        """
+        return self.edges_attribute(keys=keys, name="length")
+
+    def edge_loadpath(self, key):
+        """
+        Gets the load path at a single edge the network.
+        """
+        force = self.edge_attribute(key=key, name="force")
+        length = self.edge_attribute(key=key, name="length")
+        return fabs(force * length)
+
+    def edges_loadpaths(self, keys=None):
+        """
+        Gets the load path on the edges of the network.
+        """
+        keys = keys or self.edges()
+        for key in keys:
+            yield self.edge_loadpath(key)
+
+    def loadpath(self):
+        """
+        Gets the total load path of the network.
+        """
+        return sum(list(self.edges_loadpaths()))
