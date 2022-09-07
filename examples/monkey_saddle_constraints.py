@@ -1,8 +1,6 @@
 # the essentials
 import os
 from math import fabs
-import numpy as np
-from autograd import grad
 import matplotlib.pyplot as plt
 
 # compas
@@ -25,18 +23,11 @@ from compas_view2.app import App
 from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
-from dfdm.optimization import SLSQP
 from dfdm.optimization import TrustRegionConstrained
 from dfdm.optimization import OptimizationRecorder
-from dfdm.goals import LengthGoal
-from dfdm.goals import LineGoal
 from dfdm.goals import ResidualForceGoal
-from dfdm.goals import NetworkLoadPathGoal
-from dfdm.losses import MeanSquaredError
-from dfdm.losses import PredictionError
 from dfdm.losses import SquaredError
 from dfdm.losses import Loss
-from dfdm.losses import L2Regularizer
 from dfdm.constraints import LengthConstraint
 
 # ==========================================================================
@@ -59,7 +50,7 @@ length_max = 4.5  # maximum allowed edge length for length constraint
 
 optimizer = TrustRegionConstrained  # optimization algorithm
 maxiter = 200  # optimizer maximum iterations
-tol = 1e-3  # optimizer tolerance
+tol = 1e-2  # optimizer tolerance
 
 record = True  # True to record optimization history of force densities
 export = False  # export result to JSON

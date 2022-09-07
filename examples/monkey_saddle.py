@@ -1,7 +1,6 @@
 # the essentials
 import os
 from math import fabs
-import numpy as np
 import matplotlib.pyplot as plt
 
 # compas
@@ -27,10 +26,8 @@ from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import SLSQP
 from dfdm.optimization import OptimizationRecorder
 from dfdm.goals import LengthGoal
-from dfdm.goals import LineGoal
 from dfdm.goals import ResidualForceGoal
 from dfdm.goals import NetworkLoadPathGoal
-from dfdm.losses import MeanSquaredError
 from dfdm.losses import PredictionError
 from dfdm.losses import SquaredError
 from dfdm.losses import Loss
@@ -160,15 +157,6 @@ for edge in network0.edges():
     goal = LengthGoal(edge, length, weight=weight_length)
     goals_a.append(goal)
 
-# fixed node projection
-# for node in network0.nodes():
-#     if mesh.is_vertex_on_boundary(node):
-#         continue
-#     xyz = network0.node_coordinates(node)
-#     line = (xyz, add_vectors(xyz, [0.0, 0.0, 1.0]))
-#     goal = LineGoal(node, target=line, weight=weight_length)
-#     goals_a.append(goal)
-
 # reaction forces
 goals_b = []
 for key in network0.nodes_supports():
@@ -198,7 +186,7 @@ loss = Loss(squared_error_a, squared_error_b, loadpath_error, regularizer)
 
 network0 = fdm(network0)
 
-print(f"Load path: {round(network0.load_path(), 3)}")
+print(f"Load path: {round(network0.loadpath(), 3)}")
 
 # ==========================================================================
 # Solve constrained form-finding problem

@@ -2,8 +2,6 @@
 import os
 from math import fabs
 from math import pi
-import matplotlib.pyplot as plt
-
 import numpy as np
 
 # compas
@@ -12,8 +10,6 @@ from compas.colors import ColorMap
 from compas.geometry import Line
 from compas.geometry import Point
 from compas.geometry import add_vectors
-from compas.geometry import length_vector
-
 
 # dfdm
 from dfdm.optimization import OptimizationRecorder
@@ -33,7 +29,7 @@ from compas_view2.app import App
 name = "monkey_saddle"
 interval = 50
 animate = True
-record = True
+record = False
 
 # ==========================================================================
 # Helper functions
