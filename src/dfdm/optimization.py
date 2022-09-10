@@ -98,54 +98,14 @@ class Optimizer():
 # ==========================================================================
 
 
-class BFGS(Optimizer):
+class ConstrainedOptimizer(Optimizer):
     """
-    The Boyd-Fletcher-Floyd-Shannon optimizer.
+    A gradient-based optimizer that handles constraints.
     """
-    def __init__(self, **kwargs):
-        super().__init__(name="BFGS", **kwargs)
-
-
-class SLSQP(Optimizer):
-    """
-    The sequential least-squares programming optimizer.
-    """
-    def __init__(self, **kwargs):
-        super().__init__(name="SLSQP", **kwargs)
-
     def constraints(self, constraints, model):
-        if not constraints:
-            return
-
-        clist = []
-        for constraint in constraints:
-
-            fun = partial(constraint, model=model)
-            type = "eq"
-            cfuns = [lambda q: constraint.bound_up - fun(q)]  # fun smaller
-
-            if constraint.bound_low != constraint.bound_up:
-                type = "ineq"
-                cfuns.append(lambda q: fun(q) - constraint.bound_low)
-
-            for cfun in cfuns:
-                cdict = dict()
-                cdict["type"] = type
-                cdict["fun"] = cfun
-                cdict["jac"] = jacobian(cfun)
-                clist.append(cdict)
-
-        return clist
-
-
-class TrustRegionConstrained(Optimizer):
-    """
-    A trust-region algorithm for constrained optimization.
-    """
-    def __init__(self, **kwargs):
-        super().__init__(name="trust-constr", **kwargs)
-
-    def constraints(self, constraints, model):
+        """
+        Returns the defined constraints in a format amenable to `scipy.minimize`.
+        """
         if not constraints:
             return
 
@@ -159,9 +119,70 @@ class TrustRegionConstrained(Optimizer):
 
         return clist
 
+
+# ==========================================================================
+# Optimizers
+# ==========================================================================
+
+
+class BFGS(Optimizer):
+    """
+    The Boyd-Fletcher-Floyd-Shannon optimizer.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="BFGS", **kwargs)
+
+
+class TrustRegionConstrained(ConstrainedOptimizer):
+    """
+    A trust-region algorithm for constrained optimization.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="trust-constr", **kwargs)
+
+
+class SLSQP(ConstrainedOptimizer):
+    """
+    The sequential least-squares programming optimizer.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(name="SLSQP", **kwargs)
+
+    def constraints_dictionary(self, constraints, model):
+
+        def _constraint_eq(q, constraint, model):
+            return constraint.bound_up - constraint(q, model)
+
+        def _constraint_ineq(q, constraint, model):
+            return constraint(q, model) - constraint.bound_low
+
+        if not constraints:
+            return
+
+        clist = []
+        for constraint in constraints:
+
+            # fun = partial(constraint, model=model)
+            type = "eq"
+            cfuns = [partial(_constraint_eq, constraint=constraint, model=model)]
+
+            if constraint.bound_low != constraint.bound_up:
+                type = "ineq"
+                cfuns.append(partial(_constraint_ineq, constraint=constraint, model=model))
+
+            for cfun in cfuns:
+                cdict = dict()
+                cdict["type"] = type
+                cdict["fun"] = cfun
+                cdict["jac"] = jacobian(cfun)
+                clist.append(cdict)
+
+        return clist
+
 # ==========================================================================
 # Recorder
 # ==========================================================================
+
 
 class OptimizationRecorder(Data):
     def __init__(self):
