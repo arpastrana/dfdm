@@ -16,6 +16,6 @@ class EdgeGoal(Goal):
 
     def key(self):
         """
-        The key of the node in the network.
+        The key of the edge in the network.
         """
         return self._key

@@ -18,28 +18,30 @@ class EquilibriumModel:
         self.loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
         self.xyz0 = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
 
-    def _edges_lengths(self, xyz):
+    def _edges_vectors(self, xyz):
         connectivity = self.structure.connectivity
-        return np.linalg.norm(connectivity @ xyz, axis=1)
+        return connectivity @ xyz
+
+    def _edges_lengths(self, vectors):
+        return np.linalg.norm(vectors, axis=1)
 
     def _edges_forces(self, q, lengths):
         # TODO: is there a bug in edge forces?
         return q * lengths
 
-    def _nodes_residuals(self, q, xyz):
+    def _nodes_residuals(self, q, vectors):
         connectivity = self.structure.connectivity
-        return self.loads - np.transpose(connectivity) @ np.diag(q) @ connectivity @ xyz
+        return self.loads - np.transpose(connectivity) @ np.diag(q) @ vectors
 
     def _nodes_positions(self, q):
         # convenience shorthands
-        connectivity = self.structure.connectivity
         free = self.structure.free_nodes
         fixed = self.structure.fixed_nodes
         loads = self.loads
         xyz = self.xyz0
 
         # Immutable stuff
-        c_matrix = connectivity
+        c_matrix = self.structure.connectivity
         c_fixed = c_matrix[:, fixed]
         c_free = c_matrix[:, free]
         c_free_t = np.transpose(c_free)
@@ -66,12 +68,14 @@ class EquilibriumModel:
         Compute an equilibrium state using the force density method.
         """
         xyz_eq = self._nodes_positions(q)
-        residuals = self._nodes_residuals(q, xyz_eq)
-        lengths = self._edges_lengths(xyz_eq)
+        vectors = self._edges_vectors(xyz_eq)
+        residuals = self._nodes_residuals(q, vectors)
+        lengths = self._edges_lengths(vectors)
         forces = self._edges_forces(q, lengths)
 
         return EquilibriumState(xyz=xyz_eq,
                                 residuals=residuals,
+                                vectors=vectors,
                                 lengths=lengths,
                                 forces=forces,
                                 force_densities=q)

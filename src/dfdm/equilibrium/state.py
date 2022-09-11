@@ -12,6 +12,7 @@ import autograd.numpy as np
 class EquilibriumState:
     xyz: np.ndarray
     residuals: np.ndarray
+    vectors: np.ndarray
     lengths: np.ndarray
     forces: np.ndarray
     force_densities: np.ndarray
