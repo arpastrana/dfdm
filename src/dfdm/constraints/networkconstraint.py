@@ -1,49 +1,33 @@
-import autograd.numpy as np
+from dfdm.constraints import Constraint
 
 
-class Constraint:
-    def __init__(self, bound_low, bound_up):
-        self.bound_low = bound_low  # dict / array of shape (m,) or scalar
-        self.bound_up = bound_up  # dict / array of shape (m,) or scalar
-
-    def __call__(self, q, model):
-        """
-        The constraint function.
-        """
-        eqstate = model(q)
-        return self.constraint(eqstate)
-
-    def constraint(self, eqstate, **kwargs):
-        raise NotImplementederror
+class NetworkConstraint(Constraint):
+    pass
 
 
-class LengthConstraint(Constraint):
+class NetworkLengthConstraint(NetworkConstraint):
     """
-    Set constraint bounds to the length of the edges of a network in equilibrium.
+    Set constraint bounds to the length of all the edges of a network.
     """
-    def constraint(self, eqstate, **kwargs):
+    def constraint(self, eqstate, *args, **kwargs):
         """
         The constraint function relative to a equilibrium state.
         """
         return eqstate.lengths
 
 
-class ForceConstraint(Constraint):
+class NetworkForceConstraint(NetworkConstraint):
     """
-    Set constraint bounds to the length of the edges of a network in equilibrium.
+    Set constraint bounds to the length of all the edges of a network.
     """
-    def constraint(self, eqstate, **kwargs):
+    def constraint(self, eqstate, *args, **kwargs):
         """
         The constraint function relative to a equilibrium state.
         """
         return eqstate.forces
 
 
-
 if __name__ == "__main__":
-    from statistics import mean
-
-    import autograd.numpy as np
     # compas
     from compas.colors import Color
     from compas.geometry import Line
@@ -59,9 +43,7 @@ if __name__ == "__main__":
     from dfdm.datastructures import FDNetwork
     from dfdm.equilibrium import fdm
     from dfdm.equilibrium import constrained_fdm
-    from dfdm.equilibrium import EquilibriumModel
-    from dfdm.optimization import SLSQP
-    from dfdm.optimization import TrustRegionConstrained
+    from dfdm.optimization import SLSQP, TrustRegionConstrained
     from dfdm.goals import NetworkLoadPathGoal
     from dfdm.losses import Loss
     from dfdm.losses import PredictionError
@@ -76,7 +58,7 @@ if __name__ == "__main__":
     pz = -0.1
     length_min = 0.5
     length_max = 1.0
-    optimizer = SLSQP
+    optimizer = TrustRegionConstrained
 
     # ==========================================================================
     # Create the geometry of an arch
@@ -167,7 +149,7 @@ if __name__ == "__main__":
     # Create constraint
     # ==========================================================================
 
-    constraint = LengthConstraint(bound_low=length_min, bound_up=length_max)
+    constraint = NetworkLengthConstraint(bound_low=length_min, bound_up=length_max)
     constraints = [constraint]
 
     # ==========================================================================
