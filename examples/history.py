@@ -26,10 +26,11 @@ from compas_view2.app import App
 # Read in optimization history
 # ==========================================================================
 
-name = "monkey_saddle"
+name = "pringle"
+modify_view = False
 interval = 50
 animate = True
-record = False
+record = True
 
 # ==========================================================================
 # Helper functions
@@ -87,7 +88,7 @@ def residuals_update(residuals, network):
 # ==========================================================================
 
 HERE = os.path.join(os.path.dirname(__file__), "../data/json/")
-FILE_IN= os.path.abspath(os.path.join(HERE, f"{name}_base.json"))
+FILE_IN = os.path.abspath(os.path.join(HERE, f"{name}_base.json"))
 network0 = FDNetwork.from_json(FILE_IN)
 model = EquilibriumModel(network0)
 network = fdm(network0)
@@ -96,7 +97,7 @@ network = fdm(network0)
 # Read in optimization history
 # ==========================================================================
 
-FILE_IN= os.path.abspath(os.path.join(HERE, f"{name}_history.json"))
+FILE_IN = os.path.abspath(os.path.join(HERE, f"{name}_history.json"))
 recorder = OptimizationRecorder.from_json(FILE_IN)
 
 # ==========================================================================
@@ -107,9 +108,10 @@ recorder = OptimizationRecorder.from_json(FILE_IN)
 viewer = App(width=1600, height=900, show_grid=True)
 
 # modify view
-viewer.view.camera.zoom(-35)  # number of steps, negative to zoom out
-viewer.view.camera.rotation[2] = 2 * pi / 3  # set rotation around z axis to zero
-viewer.view.camera.rotation_delta = (2 / 3) * pi / len(recorder.history)  # set rotation around z axis to zero
+if modify_view:
+    viewer.view.camera.zoom(-35)  # number of steps, negative to zoom out
+    viewer.view.camera.rotation[2] = 2 * pi / 3  # set rotation around z axis to zero
+    viewer.view.camera.rotation_delta = (2 / 3) * pi / len(recorder.history)  # set rotation around z axis to zero
 
 # draw network
 viewer.add(network.copy(), show_points=False, linewidth=1.0, color=Color.grey())
@@ -132,7 +134,10 @@ for residual in residuals.values():
 
 # create update function
 if animate:
-    @viewer.on(interval=interval, frames=len(recorder.history), record=record, record_path=f"temp/{name}.gif")
+    @viewer.on(interval=interval,
+               frames=len(recorder.history),
+               record=record,
+               record_path=f"temp/{name}.gif")
     def wiggle(f):
         q = np.array(recorder.history[f])
         eqstate = model(q)
@@ -152,7 +157,6 @@ if animate:
             obj.update()
 
         viewer.view.camera.rotate(dx=1, dy=0)
-
 
 
 # show le crème

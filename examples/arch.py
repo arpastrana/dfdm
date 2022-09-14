@@ -19,7 +19,7 @@ from dfdm.equilibrium import fdm
 # ==========================================================================
 
 arch_length = 5.0
-num_segments = 10
+num_segments = 5000
 q_init = -1
 pz = -0.1
 

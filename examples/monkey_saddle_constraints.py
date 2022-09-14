@@ -25,10 +25,10 @@ from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import TrustRegionConstrained
 from dfdm.optimization import OptimizationRecorder
-from dfdm.goals import ResidualForceGoal
+from dfdm.goals import NodeResidualForceGoal
 from dfdm.losses import SquaredError
 from dfdm.losses import Loss
-from dfdm.constraints import LengthConstraint
+from dfdm.constraints import NetworkEdgesLengthConstraint
 
 # ==========================================================================
 # Parameters
@@ -53,7 +53,7 @@ maxiter = 200  # optimizer maximum iterations
 tol = 1e-2  # optimizer tolerance
 
 record = True  # True to record optimization history of force densities
-export = False  # export result to JSON
+export = True  # export result to JSON
 
 # ==========================================================================
 # Import coarse mesh
@@ -173,7 +173,7 @@ goals = []
 for key in network0.nodes_supports():
     step = steps[key]
     reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
-    goal = ResidualForceGoal(key, reaction)
+    goal = NodeResidualForceGoal(key, reaction)
     goals.append(goal)
 
 # ==========================================================================
@@ -182,7 +182,7 @@ for key in network0.nodes_supports():
 
 constraints = None
 if add_constraints:
-    constraints = [LengthConstraint(bound_low=length_min, bound_up=length_max)]
+    constraints = [NetworkEdgesLengthConstraint(bound_low=length_min, bound_up=length_max)]
 
 # ==========================================================================
 # Combine error functions and regularizer into custom loss function

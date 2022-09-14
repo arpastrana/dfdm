@@ -25,8 +25,8 @@ from dfdm.equilibrium import EquilibriumModel
 from dfdm.equilibrium import constrained_fdm, fdm
 from dfdm.optimization import SLSQP
 from dfdm.optimization import OptimizationRecorder
-from dfdm.goals import LengthGoal
-from dfdm.goals import ResidualForceGoal
+from dfdm.goals import EdgeLengthGoal
+from dfdm.goals import NodeResidualForceGoal
 from dfdm.goals import NetworkLoadPathGoal
 from dfdm.losses import PredictionError
 from dfdm.losses import SquaredError
@@ -57,7 +57,7 @@ maxiter = 500  # optimizer maximum iterations
 tol = 1e-3  # optimizer tolerance
 
 record = True  # True to record optimization history of force densities
-export = False  # export result to JSON
+export = True  # export result to JSON
 
 # ==========================================================================
 # Import coarse mesh
@@ -154,7 +154,7 @@ if export:
 goals_a = []
 for edge in network0.edges():
     length = network0.edge_length(*edge)
-    goal = LengthGoal(edge, length, weight=weight_length)
+    goal = EdgeLengthGoal(edge, length, weight=weight_length)
     goals_a.append(goal)
 
 # reaction forces
@@ -162,7 +162,7 @@ goals_b = []
 for key in network0.nodes_supports():
     step = steps[key]
     reaction = (1 - step / max_step) ** r_exp * (rmax - rmin) + rmin
-    goal = ResidualForceGoal(key, reaction, weight=weight_residual)
+    goal = NodeResidualForceGoal(key, reaction, weight=weight_residual)
     goals_b.append(goal)
 
 # global loadpath goal

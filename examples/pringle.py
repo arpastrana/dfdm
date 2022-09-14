@@ -1,6 +1,7 @@
 """
 Solve a constrained force density problem using gradient-based optimization.
 """
+import os
 from math import fabs
 
 import matplotlib.pyplot as plt
@@ -12,6 +13,8 @@ from compas.geometry import Line
 from compas.geometry import Point
 from compas.geometry import add_vectors
 from compas.geometry import length_vector
+from compas.geometry import Translation
+from compas.datastructures import network_transform
 
 # visualization
 from compas_view2.app import App
@@ -22,9 +25,9 @@ from dfdm.datastructures import FDNetwork
 from dfdm.equilibrium import constrained_fdm
 from dfdm.equilibrium import EquilibriumModel
 
-from dfdm.goals import LengthGoal
-from dfdm.goals import PlaneGoal
-from dfdm.goals import ResidualForceGoal
+from dfdm.goals import EdgeLengthGoal
+from dfdm.goals import NodePlaneGoal
+from dfdm.goals import NodeResidualForceGoal
 
 from dfdm.losses import Loss
 from dfdm.losses import SquaredError
@@ -35,6 +38,8 @@ from dfdm.optimization import OptimizationRecorder
 # ==========================================================================
 # Initial parameters
 # ==========================================================================
+
+name = "monkey_vault"
 
 length_vault = 6.0
 width_vault = 3.0
@@ -48,7 +53,8 @@ pz = -0.1
 rz_min = 0.45
 rz_max = 2.0
 
-record = False
+record = True
+export = True
 
 # ==========================================================================
 # Instantiate a force density network
@@ -111,6 +117,20 @@ for node in network.nodes_free():
 for edge in network.edges():
     network.edge_forcedensity(edge, q_init)
 
+# center vault around origin
+T = Translation.from_vector([-length_vault / 2., -width_vault / 2., 0.])
+network_transform(network, T)
+
+# ==========================================================================
+# Export FD network with problem definition
+# ==========================================================================
+
+if export:
+    HERE = os.path.dirname(__file__)
+    FILE_OUT = os.path.join(HERE, f"../data/json/{name}_base.json")
+    network.to_json(FILE_OUT)
+    print("Problem definition exported to", FILE_OUT)
+
 # ==========================================================================
 # Create a target distribution of residual force magnitudes
 # ==========================================================================
@@ -131,18 +151,18 @@ rzs = rzs + rzs[0:-1][::-1]
 
 goals = []
 for rz, arch in zip(rzs, arches):
-    goals.append(ResidualForceGoal(arch[0], target=rz, weight=100.0))
-    goals.append(ResidualForceGoal(arch[-1], target=rz, weight=100.0))
+    goals.append(NodeResidualForceGoal(arch[0], target=rz, weight=100.0))
+    goals.append(NodeResidualForceGoal(arch[-1], target=rz, weight=100.0))
 
 for node in network.nodes_free():
     origin = network.node_coordinates(node)
     normal = [1.0, 0.0, 0.0]
-    goal = PlaneGoal(node, target=(origin, normal), weight=10.0)
+    goal = NodePlaneGoal(node, target=(origin, normal), weight=10.0)
     goals.append(goal)
 
 for edge in cross_edges:
     target_length = network.edge_length(*edge)
-    goals.append(LengthGoal(edge, target=target_length, weight=1.0))
+    goals.append(EdgeLengthGoal(edge, target=target_length, weight=1.0))
 
 # ==========================================================================
 # Create loss function
@@ -167,6 +187,15 @@ c_network = constrained_fdm(network,
                             callback=recorder)
 
 # ==========================================================================
+# Export optimization history
+# ==========================================================================
+
+if record and export:
+    FILE_OUT = os.path.join(HERE, f"../data/json/{name}_history.json")
+    recorder.to_json(FILE_OUT)
+    print("Optimization history exported to", FILE_OUT)
+
+# ==========================================================================
 # Plot loss components
 # ==========================================================================
 
@@ -176,9 +205,13 @@ if record:
     y = []
     for q in recorder.history:
         eqstate = model(q)
-        error = loss(eqstate, model)
+        try:
+            error = loss(eqstate, model)
+        except:
+            error = loss(q, model)
+
         y.append(error)
-    plt.plot(y, label=loss.__class__.__name__)
+    plt.plot(y, label=loss.name)
 
     plt.xlabel("Optimization iterations")
     plt.ylabel("Loss")
@@ -206,7 +239,7 @@ for name, vals in zip(("Q", "Forces", "Lengths"), (q, f, l)):
 # Visualization
 # ==========================================================================
 
-viewer = App(width=1600, height=900, show_grid=False)
+viewer = App(width=1600, height=900, show_grid=True)
 
 # reference network
 viewer.add(network, show_points=True, linewidth=2.0, color=Color.grey().darkened())

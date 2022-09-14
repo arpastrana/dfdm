@@ -65,7 +65,6 @@ diameter = 1.0
 num_sides = 16
 num_rings = 24
 offset_distance = 0.02  # ring offset
-length_target = 0.03
 
 # initial form-finding parameters
 q0_ring = -2.0  # starting force density for ring (hoop) edges
@@ -81,25 +80,13 @@ tol = 1e-6
 qmin = -200.0
 qmax = -0.001
 
-# constraint angle
+# goal length
+length_target = 0.03
+
+# goal vector, angle
 angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in constraint
 angle_min = 10.0  # angle constraint, lower bound
 angle_max = 45.0  # angle constraint, upper bound
-
-# constraint length
-length_min = offset_distance
-length_max = offset_distance * 2
-
-# constraint force
-force_min = -20.0
-force_max = 0.0
-
-# regularizers
-alpha_reg = 0.0
-
-# output
-record = False
-export = False
 
 # ==========================================================================
 # Instantiate a force density network
@@ -189,19 +176,16 @@ for cross_ring in edges_cross_rings[:]:
 vector_edges = []
 for i, cross_ring in enumerate(edges_cross_rings):
 
-    angle_ratio = i / len(edges_cross_rings)
-    # angle = angle_max - angle_ratio * angle_max
-    angle = ((i+1) / len(edges_cross_rings)) * angle_max
+    angle = ((i + 1) / len(edges_cross_rings)) * angle_max
 
-    print(f"Edges ring {i + 1}/{len(edges_cross_rings) + 1}. Angle goal: {angle}")
+    print(f"Edges ring {i + 1}/{len(edges_cross_rings)}. Angle goal: {angle}")
 
     for u, v in cross_ring:
 
         edge = (u, v)
         xyz = network.node_coordinates(u)  # xyz of first node, assumes it is the lowermost
-        z = [0.0, 0.0, 1.0]
-        normal = cross_vectors(network.edge_vector(u, v), z)
-        end = rotate_points([z], -radians(angle), axis=normal, origin=xyz).pop()
+        normal = cross_vectors(network.edge_vector(u, v), angle_vector)
+        end = rotate_points([angle_vector], -radians(angle), axis=normal, origin=xyz).pop()
         vector = subtract_vectors(end, xyz)
 
         goal = EdgeDirectionGoal(edge, target=vector, weight=1.)
@@ -210,7 +194,7 @@ for i, cross_ring in enumerate(edges_cross_rings):
         vector_edges.append((vector, edge))
 
 
-loss = Loss(SquaredError(goals=goals), L2Regularizer(alpha_reg))
+loss = Loss(SquaredError(goals=goals))
 
 
 # ==========================================================================
