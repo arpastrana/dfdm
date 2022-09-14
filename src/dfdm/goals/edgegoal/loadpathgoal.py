@@ -4,7 +4,7 @@ from dfdm.goals import ScalarGoal
 from dfdm.goals.edgegoal import EdgeGoal
 
 
-class LoadPathGoal(ScalarGoal, EdgeGoal):
+class EdgeLoadPathGoal(ScalarGoal, EdgeGoal):
     """
     Make an edge of a network to reach a certain load path magnitude.
 

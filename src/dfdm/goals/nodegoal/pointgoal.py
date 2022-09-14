@@ -8,7 +8,7 @@ from dfdm.goals import VectorGoal
 from dfdm.goals.nodegoal import NodeGoal
 
 
-class PointGoal(VectorGoal, NodeGoal):
+class NodePointGoal(VectorGoal, NodeGoal):
     """
     Make a node of a network to reach target xyz coordinates.
     """
@@ -28,7 +28,7 @@ class PointGoal(VectorGoal, NodeGoal):
         return np.array(self._target, dtype=np.float64)
 
 
-class LineGoal(PointGoal):
+class NodeLineGoal(NodePointGoal):
     """
     Pulls the xyz position of a node to a target line ray.
     """
@@ -44,7 +44,7 @@ class LineGoal(PointGoal):
         return np.array(point, dtype=np.float64)
 
 
-class PlaneGoal(PointGoal):
+class NodePlaneGoal(NodePointGoal):
     """
     Pulls the xyz position of a node to a target plane.
     """

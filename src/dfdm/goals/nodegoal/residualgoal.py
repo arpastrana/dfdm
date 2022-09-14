@@ -9,7 +9,7 @@ from dfdm.goals import VectorGoal
 from dfdm.goals.nodegoal import NodeGoal
 
 
-class ResidualForceGoal(ScalarGoal, NodeGoal):
+class NodeResidualForceGoal(ScalarGoal, NodeGoal):
     """
     Make the residual force in a network to match a non-negative magnitude.
     """
@@ -25,7 +25,7 @@ class ResidualForceGoal(ScalarGoal, NodeGoal):
         return np.atleast_1d(np.linalg.norm(residual))
 
 
-class ResidualVectorGoal(VectorGoal, NodeGoal):
+class NodeResidualVectorGoal(VectorGoal, NodeGoal):
     """
     Make the residual force in a network to match the magnitude and direction of a vector.
     """
@@ -39,7 +39,7 @@ class ResidualVectorGoal(VectorGoal, NodeGoal):
         return eq_state.residuals[index, :]
 
 
-class ResidualDirectionGoal(VectorGoal, NodeGoal):
+class NodeResidualDirectionGoal(VectorGoal, NodeGoal):
     """
     Make the residual force in a network to match the direction of a vector.
 
@@ -56,9 +56,6 @@ class ResidualDirectionGoal(VectorGoal, NodeGoal):
     """
     def __init__(self, key, target, weight=1.0):
         super().__init__(key=key, target=target, weight=weight)
-
-    # def weight(self):
-    #     return np.array([self._weight] * 3)
 
     def prediction(self, eq_state, index):
         """
