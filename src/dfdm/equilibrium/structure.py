@@ -1,5 +1,6 @@
 import autograd.numpy as np
 
+from compas.datastructures import network_adjacency_matrix
 from compas.numerical import connectivity_matrix
 
 
@@ -12,6 +13,7 @@ class EquilibriumStructure:
         self._network = network
 
         self._connectivity = None
+        self._adjacency = None
 
         self._free_nodes = None
         self._fixed_nodes = None
@@ -50,14 +52,23 @@ class EquilibriumStructure:
         return self._edge_index
 
     @property
+    def adjacency(self):
+        """
+        The adjacency of the network encoded as a 2D matrix.
+        """
+        if self._adjacency is None:
+            self._adjacency = np.array(network_adjacency_matrix(self.network, "list"), dtype=np.int32)
+        return self._adjacency
+
+    @property
     def connectivity(self):
         """
-        The connectivity of the network encoded as a branch-node list of lists.
+        The connectivity of the network encoded as a branch-node matrix.
         """
         if self._connectivity is None:
             node_idx = self.node_index
             edges = [(node_idx[u], node_idx[v]) for u, v in self.network.edges()]
-            self._connectivity = np.array(connectivity_matrix(edges, "list"), dtype=np.float64)
+            self._connectivity = np.array(connectivity_matrix(edges, "list"), dtype=np.int32)
         return self._connectivity
 
     @property
