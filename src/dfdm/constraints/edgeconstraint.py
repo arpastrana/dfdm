@@ -185,7 +185,10 @@ if __name__ == "__main__":
     # Create constraint
     # ==========================================================================
 
+    constraints = []
+
     from dfdm.equilibrium import EquilibriumModel
+    from dfdm.constraints import NetworkLengthConstraint
     import autograd.numpy as np
     from autograd import jacobian
     from math import radians
@@ -196,21 +199,30 @@ if __name__ == "__main__":
     eqstate = model(q)
 
     vec = [0., 0., 1.]
-    constraint= EdgeVectorAngleConstraint(key=(0, 1), vector=vec, bound_low=0., bound_up=30.)
+    angle_low = 0.
+    angle_up = 30.
+
+    constraint = EdgeVectorAngleConstraint(key=(0, 1), vector=vec, bound_low=0., bound_up=30.)
+
     print("key", constraint.key())
     print("index", constraint.index(model))
     print("constraint val", constraint.constraint(eqstate, model))
+
     fun = partial(constraint, model=model)
     jac = jacobian(fun)
+    constraint_angle = constraint
+
     print("fun", fun(q))
     print("jac", jac(q))
 
-    constraints = [constraint]
-    for edge in network.edges():
-        c = EdgeLengthConstraint(edge, bound_low=length_min, bound_up=length_max)
-        constraints.append(c)
+    constraints.append(constraint_angle)
 
-    # constraint = NetworkLengthConstraint(bound_low=length_min, bound_up=length_max)
+    # for edge in network.edges():
+    #     c = EdgeLengthConstraint(edge, bound_low=length_min, bound_up=length_max)
+    #     constraints.append(c)
+
+    constraint = NetworkLengthConstraint(bound_low=length_min, bound_up=length_max)
+    constraints.append(constraint)
     # constraints = [constraint]
 
     # ==========================================================================
@@ -227,7 +239,7 @@ if __name__ == "__main__":
 
     q = np.array(ceq_network.edges_forcedensities())
     eqstate = model(q)
-    print("constraint val", constraint.constraint(eqstate, model))
+    print(f"\nconstraint val {constraint_angle.constraint(eqstate, model)}\n")
 
     # ==========================================================================
     # Report stats
