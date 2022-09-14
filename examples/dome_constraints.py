@@ -88,7 +88,7 @@ add_edge_length_goal = False
 length_target = 0.03
 
 # goal and constraint edge angle
-add_edge_direction_goal = False
+add_edge_angle_goal = False
 angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in goal
 angle_base = 10.0  # angle constraint, lower bound
 angle_top = 30.0  # angle constraint, upper bound
@@ -201,7 +201,7 @@ if add_edge_length_goal:
             goals.append(goal)
 
 # edge angle goal
-if add_edge_direction_goal:
+if add_edge_angle_goal:
     for i, ring in enumerate(edges_cross_rings):
         angle_delta = angle_top - angle_base
         angle = angle_base + angle_delta * (i / (num_rings - 1))
