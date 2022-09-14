@@ -1,7 +1,10 @@
 """
 Solve a constrained force density problem using gradient-based optimization.
 """
-import numpy as np
+import os
+import matplotlib.pyplot as plt
+
+# math
 from math import fabs
 from math import radians
 from math import sqrt
@@ -51,8 +54,9 @@ from dfdm.losses import Loss
 
 from dfdm.optimization import SLSQP
 from dfdm.optimization import TrustRegionConstrained
-from dfdm.optimization import OptimizationRecorder
+from dfdm.optimization import BFGS
 
+from dfdm.optimization import OptimizationRecorder
 
 # ==========================================================================
 # Initial parameters
@@ -62,9 +66,9 @@ name = "dome"
 
 # geometric parameters
 diameter = 1.0
-num_sides = 16
-num_rings = 24
-offset_distance = 0.02  # ring offset
+num_sides = 8
+num_rings = 40
+offset_distance = 0.01  # ring offset
 
 # initial form-finding parameters
 q0_ring = -2.0  # starting force density for ring (hoop) edges
@@ -72,21 +76,27 @@ q0_cross = -0.5  # starting force density for the edges transversal to the rings
 pz = -0.1  # z component of the applied load
 
 # optimization
-optimizer = SLSQP
-maxiter = 1000
-tol = 1e-6
+optimizer = BFGS
+maxiter = 10000
+tol = 1e-3  # 1e-6 for best results at the cost of a considerable speed decrease
 
 # parameter bounds
-qmin = -200.0
-qmax = -0.001
+qmin = None  # -200.0
+qmax = None  # -0.001
 
 # goal length
 length_target = 0.03
 
 # goal vector, angle
 angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in constraint
-angle_min = 10.0  # angle constraint, lower bound
-angle_max = 45.0  # angle constraint, upper bound
+angle_base = 20.0  # angle constraint, lower bound
+angle_top = 30.0  # angle constraint, upper bound
+
+# io
+export = True
+record = True
+
+HERE = os.path.dirname(__file__)
 
 # ==========================================================================
 # Instantiate a force density network
@@ -160,8 +170,13 @@ for i, cross_ring in enumerate(edges_cross_rings):
 
 networks = {"start": network}
 
+if export:
+    FILE_OUT = os.path.join(HERE, f"../data/json/{name}_base.json")
+    network.to_json(FILE_OUT)
+    print("Problem definition exported to", FILE_OUT)
+
 # ==========================================================================
-# Create loss function with soft goals
+# Create goals
 # ==========================================================================
 
 goals = []
@@ -176,7 +191,8 @@ for cross_ring in edges_cross_rings[:]:
 vector_edges = []
 for i, cross_ring in enumerate(edges_cross_rings):
 
-    angle = ((i + 1) / len(edges_cross_rings)) * angle_max
+    angle_delta = angle_top - angle_base
+    angle = angle_base + angle_delta * (i / (num_rings - 1))
 
     print(f"Edges ring {i + 1}/{len(edges_cross_rings)}. Angle goal: {angle}")
 
@@ -185,7 +201,9 @@ for i, cross_ring in enumerate(edges_cross_rings):
         edge = (u, v)
         xyz = network.node_coordinates(u)  # xyz of first node, assumes it is the lowermost
         normal = cross_vectors(network.edge_vector(u, v), angle_vector)
-        end = rotate_points([angle_vector], -radians(angle), axis=normal, origin=xyz).pop()
+
+        point = add_vectors(xyz, angle_vector)
+        end = rotate_points([point], -radians(angle), axis=normal, origin=xyz).pop()
         vector = subtract_vectors(end, xyz)
 
         goal = EdgeDirectionGoal(edge, target=vector, weight=1.)
@@ -193,9 +211,11 @@ for i, cross_ring in enumerate(edges_cross_rings):
         goals.append(goal)
         vector_edges.append((vector, edge))
 
+# ==========================================================================
+# Define loss function with goals
+# ==========================================================================
 
 loss = Loss(SquaredError(goals=goals))
-
 
 # ==========================================================================
 # Form-finding sweep
@@ -208,7 +228,8 @@ sweep_configs = [{"name": "eq",
                  {"name": "eq_g",
                  "method": constrained_fdm,
                   "msg": "\n*Constrained form found network. No constraints*",
-                  "save": True},
+                  "save": True,
+                  "record": record},
                  ]
 
 # ==========================================================================
@@ -225,12 +246,18 @@ for config in sweep_configs:
     if fofin_method == fdm:
         network = fofin_method(network)
     else:
+        recorder = None
+        if config.get("record"):
+            recorder = OptimizationRecorder()
+
         network = fofin_method(network,
                                optimizer=optimizer(),
                                bounds=(qmin, qmax),
                                loss=loss,
                                constraints=config.get("constraints"),
-                               maxiter=maxiter)
+                               maxiter=maxiter,
+                               tol=tol,
+                               callback=recorder)
 
     # store network
     if config["save"]:
@@ -245,12 +272,56 @@ for config in sweep_configs:
     field_names = ["FDs", "Forces", "Lengths"]
 
     print(f"Load path: {round(network.loadpath(), 3)}")
-    for name, vals in zip(field_names, fields):
+    for field_name, vals in zip(field_names, fields):
 
         minv = round(min(vals), 3)
         maxv = round(max(vals), 3)
         meanv = round(sum(vals) / len(vals), 3)
-        print(f"{name}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
+        print(f"{field_name}\t\tMin: {minv}\tMax: {maxv}\tMean: {meanv}")
+
+# ==========================================================================
+# Export optimization history
+# ==========================================================================
+
+    if record and export and fofin_method != fdm:
+        FILE_OUT = os.path.join(HERE, f"../data/json/{name}_history.json")
+        recorder.to_json(FILE_OUT)
+        print("Optimization history exported to", FILE_OUT)
+
+# ==========================================================================
+# Plot loss components
+# ==========================================================================
+
+    if record and fofin_method != fdm:
+        model = EquilibriumModel(network)
+        fig = plt.figure(dpi=150)
+        for loss_term in [loss] + list(loss.loss_terms):
+            y = []
+            for q in recorder.history:
+                eqstate = model(q)
+                try:
+                    error = loss_term(eqstate, model)
+                except:
+                    error = loss_term(q, model)
+                y.append(error)
+            plt.plot(y, label=loss_term.name)
+
+        plt.xlabel("Optimization iterations")
+        plt.ylabel("Loss")
+        plt.yscale("log")
+        plt.grid()
+        plt.legend()
+        plt.show()
+
+# ==========================================================================
+# Export JSON
+# ==========================================================================
+
+if export:
+    model_name = config["name"]
+    FILE_OUT = os.path.join(HERE, f"../data/json/{name}_{model_name}_optimized.json")
+    network.to_json(FILE_OUT)
+    print("Form found design exported to", FILE_OUT)
 
 # ==========================================================================
 # Visualization

@@ -26,15 +26,18 @@ from compas_view2.app import App
 # Read in optimization history
 # ==========================================================================
 
-name = "pringle"
-modify_view = False
-interval = 50
+name = "dome"
+modify_view = True
+interval = 0.0001
+# timeout = 0.01
+camera_zoom = 15  # -35 for monkey saddle, 0 for pringle, 15 for dome
 animate = True
-record = True
+record = False
 
 # ==========================================================================
 # Helper functions
 # ==========================================================================
+
 
 def edge_colors(network, cmap_name="viridis"):
     cmap = ColorMap.from_mpl(cmap_name)
@@ -109,7 +112,7 @@ viewer = App(width=1600, height=900, show_grid=True)
 
 # modify view
 if modify_view:
-    viewer.view.camera.zoom(-35)  # number of steps, negative to zoom out
+    viewer.view.camera.zoom(camera_zoom)  # number of steps, negative to zoom out
     viewer.view.camera.rotation[2] = 2 * pi / 3  # set rotation around z axis to zero
     viewer.view.camera.rotation_delta = (2 / 3) * pi / len(recorder.history)  # set rotation around z axis to zero
 
@@ -134,7 +137,9 @@ for residual in residuals.values():
 
 # create update function
 if animate:
-    @viewer.on(interval=interval,
+    @viewer.on(
+               interval=interval,
+               # timeout=timeout,
                frames=len(recorder.history),
                record=record,
                record_path=f"temp/{name}.gif")
