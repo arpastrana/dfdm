@@ -3,6 +3,8 @@ Solve a constrained force density problem using gradient-based optimization.
 """
 import numpy as np
 from math import fabs
+from math import radians
+from math import sqrt
 
 # compas
 from compas.colors import Color
@@ -11,6 +13,10 @@ from compas.geometry import Line
 from compas.geometry import Point
 from compas.geometry import add_vectors
 from compas.geometry import length_vector
+from compas.geometry import subtract_vectors
+from compas.geometry import cross_vectors
+from compas.geometry import rotate_points
+from compas.geometry import scale_vector
 from compas.geometry import Polygon
 from compas.geometry import offset_polygon
 from compas.utilities import pairwise
@@ -25,22 +31,28 @@ from dfdm.equilibrium import fdm
 from dfdm.equilibrium import constrained_fdm
 from dfdm.equilibrium import EquilibriumModel
 
-from dfdm.goals import LineGoal
-from dfdm.goals import LengthGoal
-from dfdm.goals import PlaneGoal
-from dfdm.goals import ResidualForceGoal
+from dfdm.goals import EdgeVectorAngleGoal
+from dfdm.goals import EdgeDirectionGoal
+from dfdm.goals import EdgeLengthGoal
+from dfdm.goals import NodeLineGoal
+from dfdm.goals import NodePlaneGoal
+from dfdm.goals import NodeResidualForceGoal
 from dfdm.goals import NetworkLoadPathGoal
 
 from dfdm.constraints import EdgeVectorAngleConstraint
 from dfdm.constraints import NetworkEdgesLengthConstraint
+from dfdm.constraints import NetworkEdgesForceConstraint
 
 from dfdm.losses import PredictionError
-from dfdm.losses import Loss
 from dfdm.losses import SquaredError
+from dfdm.losses import MeanSquaredError
+from dfdm.losses import L2Regularizer
+from dfdm.losses import Loss
 
 from dfdm.optimization import SLSQP
 from dfdm.optimization import TrustRegionConstrained
 from dfdm.optimization import OptimizationRecorder
+
 
 # ==========================================================================
 # Initial parameters
@@ -50,9 +62,10 @@ name = "dome"
 
 # geometric parameters
 diameter = 1.0
-num_sides = 8
-num_rings = 5
-distance = 0.05  # hoop offset
+num_sides = 16
+num_rings = 24
+offset_distance = 0.02  # ring offset
+length_target = 0.03
 
 # initial form-finding parameters
 q0_ring = -2.0  # starting force density for ring (hoop) edges
@@ -65,20 +78,24 @@ maxiter = 1000
 tol = 1e-6
 
 # parameter bounds
-qmin = -10.0
-qmax = -0.01
+qmin = -200.0
+qmax = -0.001
 
 # constraint angle
 angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in constraint
 angle_min = 10.0  # angle constraint, lower bound
-angle_max = 30.0  # angle constraint, upper bound
+angle_max = 45.0  # angle constraint, upper bound
 
 # constraint length
-length_min = distance
-length_max = distance * 2
+length_min = offset_distance
+length_max = offset_distance * 2
 
-# load path
-alpha_lp = 0.1
+# constraint force
+force_min = -20.0
+force_max = 0.0
+
+# regularizers
+alpha_reg = 0.0
 
 # output
 record = False
@@ -98,7 +115,7 @@ polygon = Polygon.from_sides_and_radius_xy(num_sides, diameter / 2.).points
 
 rings = []
 for i in range(num_rings + 1):
-    polygon = offset_polygon(polygon, distance)
+    polygon = offset_polygon(polygon, offset_distance)
     nodes = [network.add_node(x=x, y=y, z=z) for x, y, z in polygon]
     rings.append(nodes)
 
@@ -108,15 +125,25 @@ for ring in rings[1:]:
         edge = network.add_edge(u, v)
         edges_rings.append(edge)
 
+crosses = []
 edges_cross = []
 for i in range(num_sides):
-    seq = []
-    for ring in rings:
-        seq.append(ring[i])
 
-    for u, v in pairwise(seq):
+    radial = []
+    for ring in rings:
+        radial.append(ring[i])
+    crosses.append(radial)
+
+    for u, v in pairwise(radial):
         edge = network.add_edge(u, v)
         edges_cross.append(edge)
+
+edges_cross_rings = []
+for rings_pair in pairwise(rings):
+    cross_ring = []
+    for edge in zip(*rings_pair):
+        cross_ring.append(edge)
+    edges_cross_rings.append(cross_ring)
 
 # ==========================================================================
 # Define structural system
@@ -130,12 +157,15 @@ for node in rings[0]:
 for node in network.nodes_free():
     network.node_load(node, load=[0.0, 0.0, pz])
 
-# set initial q to all nodes
+# set initial q to all edges
+q0_scale = sqrt(network.number_of_edges()) / 2.
+
 for edge in edges_rings:
     network.edge_forcedensity(edge, q0_ring)
 
-for edge in edges_cross:
-    network.edge_forcedensity(edge, q0_cross)
+for i, cross_ring in enumerate(edges_cross_rings):
+    for edge in cross_ring:
+        network.edge_forcedensity(edge, q0_cross * q0_scale * (num_rings - i))
 
 # ==========================================================================
 # Store network
@@ -149,40 +179,39 @@ networks = {"start": network}
 
 goals = []
 
-# horizontal projection goal
-# for node in network.nodes_free():
-#     xyz = network.node_coordinates(node)
-#     line = Line(xyz, add_vectors(xyz, [0.0, 0.0, 1.0]))
-#     goal = LineGoal(node, target=line)
-#     goals.append(goal)
-
-# loss = Loss(PredictionError(goals=goals))
-
 # edge length goal
-for edge in edges_cross:
-    length = network.edge_length(*edge)
-    goal = LengthGoal(edge, target=length)
-    goals.append(goal)
+for cross_ring in edges_cross_rings[:]:
+    for edge in cross_ring:
+        goal = EdgeLengthGoal(edge, target=length_target, weight=1.)
+        goals.append(goal)
 
-# loss = Loss(SquaredError(goals=goals), PredictionError([NetworkLoadPathGoal()], alpha=alpha_lp))
-loss = Loss(SquaredError(goals=goals))
+# edge vector goal
+vector_edges = []
+for i, cross_ring in enumerate(edges_cross_rings):
 
-# ==========================================================================
-# Create constraints
-# ==========================================================================
+    angle_ratio = i / len(edges_cross_rings)
+    # angle = angle_max - angle_ratio * angle_max
+    angle = ((i+1) / len(edges_cross_rings)) * angle_max
 
-constraints_angles = []
-for edge in edges_cross:
-    constraint = EdgeVectorAngleConstraint(edge,
-                                           vector=angle_vector,
-                                           bound_low=angle_min,
-                                           bound_up=angle_max)
-    constraints_angles.append(constraint)
+    print(f"Edges ring {i + 1}/{len(edges_cross_rings) + 1}. Angle goal: {angle}")
 
-# constraints_length = [NetworkEdgesLengthConstraint(bound_low=length_min, bound_up=length_max)]
-# constraints = constraints_angles + constraints_length
+    for u, v in cross_ring:
 
-constraints = constraints_angles
+        edge = (u, v)
+        xyz = network.node_coordinates(u)  # xyz of first node, assumes it is the lowermost
+        z = [0.0, 0.0, 1.0]
+        normal = cross_vectors(network.edge_vector(u, v), z)
+        end = rotate_points([z], -radians(angle), axis=normal, origin=xyz).pop()
+        vector = subtract_vectors(end, xyz)
+
+        goal = EdgeDirectionGoal(edge, target=vector, weight=1.)
+
+        goals.append(goal)
+        vector_edges.append((vector, edge))
+
+
+loss = Loss(SquaredError(goals=goals), L2Regularizer(alpha_reg))
+
 
 # ==========================================================================
 # Form-finding sweep
@@ -191,16 +220,11 @@ constraints = constraints_angles
 sweep_configs = [{"name": "eq",
                   "method": fdm,
                   "msg": "\n*Form found network*",
-                  "save": False},
-                 # {"name": "eq_g",
-                 # "method": constrained_fdm,
-                 #  "msg": "\n*Constrained form found network. No constraints*",
-                 #  "save": True},
-                 {"name": "eq_g_c",
-                  "method": constrained_fdm,
-                  "msg": "\n*Constrained form found network. With Constraints*",
-                  "save": True,
-                  "constraints": constraints}
+                  "save": True},
+                 {"name": "eq_g",
+                 "method": constrained_fdm,
+                  "msg": "\n*Constrained form found network. No constraints*",
+                  "save": True},
                  ]
 
 # ==========================================================================
@@ -236,14 +260,6 @@ for config in sweep_configs:
     fields = [q, f, l]
     field_names = ["FDs", "Forces", "Lengths"]
 
-    if constraints_angles:
-        model = EquilibriumModel(network)
-        q = np.array(network.edges_forcedensities())
-        eqstate = model(q)
-        a = [constraint.constraint(eqstate, model) for constraint in constraints_angles]
-        fields.append(a)
-        field_names.append("Angles")
-
     print(f"Load path: {round(network.loadpath(), 3)}")
     for name, vals in zip(field_names, fields):
 
@@ -258,14 +274,25 @@ for config in sweep_configs:
 
 viewer = App(width=1600, height=900, show_grid=False)
 
-# network = networks["start"]
-# c_network = networks["eq_g_c"]
-
-# reference network
-for i, network in enumerate(networks.values()):
+# add all networks except the last one
+networks = list(networks.values())
+for i, network in enumerate(networks):
+    if i == (len(networks) - 1):
+        continue
     viewer.add(network, show_points=True, linewidth=1.0, color=Color.grey().darkened(i * 10))
-    c_network = network  # last network is colored
 
+network0 = networks[0]
+if len(networks) > 1:
+    c_network = networks[-1]  # last network is colored
+else:
+    c_network = networks[0]
+
+for vector, edge in vector_edges:
+    u, v = edge
+    xyz = c_network.node_coordinates(u)
+    viewer.add(Line(xyz, add_vectors(xyz, scale_vector(vector, 0.1))))
+
+# plot the last network
 # edges color map
 cmap = ColorMap.from_mpl("viridis")
 
@@ -292,7 +319,7 @@ for node in c_network.nodes():
     pt = c_network.node_coordinates(node)
 
     # draw lines betwen subject and target nodes
-    # target_pt = network.node_coordinates(node)
+    # target_pt = network0.node_coordinates(node)
     # viewer.add(Line(target_pt, pt), linewidth=1.0, color=Color.grey().lightened())
 
     # draw residual forces
