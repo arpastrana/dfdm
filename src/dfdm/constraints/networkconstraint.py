@@ -1,3 +1,5 @@
+import autograd.numpy as np
+
 from dfdm.constraints import Constraint
 
 
@@ -5,7 +7,7 @@ class NetworkConstraint(Constraint):
     pass
 
 
-class NetworkLengthConstraint(NetworkConstraint):
+class NetworkEdgesLengthConstraint(NetworkConstraint):
     """
     Set constraint bounds to the length of all the edges of a network.
     """
@@ -16,7 +18,7 @@ class NetworkLengthConstraint(NetworkConstraint):
         return eqstate.lengths
 
 
-class NetworkForceConstraint(NetworkConstraint):
+class NetworkEdgesForceConstraint(NetworkConstraint):
     """
     Set constraint bounds to the length of all the edges of a network.
     """
@@ -25,6 +27,33 @@ class NetworkForceConstraint(NetworkConstraint):
         The constraint function relative to a equilibrium state.
         """
         return eqstate.forces
+
+
+# class NetworkEdgesVectorAngleConstraint(NetworkConstraint):
+#     """
+#     Constraints the angle formed by an edge and a vector between a lower and an upper bound.
+#     """
+#     def __init__(self, key, vector, bound_low, bound_up):
+#         super().__init__(key=key, bound_low=bound_low, bound_up=bound_up)
+#         self.vector_other = np.asarray(vector)
+
+#     def constraint(self, eqstate, model):
+#         """
+#         Returns the angle between an edge in an equilibrium state and a vector.
+#         """
+#         vector = eqstate.vectors
+#         return self._angle_vectors_numpy(vector, self.vector_other, deg=True)
+
+#     @staticmethod
+#     def _angle_vectors_numpy(u, v, deg=False):
+#         """
+#         Compute the smallest angle between two vectors.
+#         """
+#         a = np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+#         a = max(min(a, 1), -1)
+#         if deg:
+#             return np.degrees(np.arccos(a))
+#         return np.arccos(a)
 
 
 if __name__ == "__main__":
@@ -149,7 +178,7 @@ if __name__ == "__main__":
     # Create constraint
     # ==========================================================================
 
-    constraint = NetworkLengthConstraint(bound_low=length_min, bound_up=length_max)
+    constraint = NetworkEdgesLengthConstraint(bound_low=length_min, bound_up=length_max)
     constraints = [constraint]
 
     # ==========================================================================
