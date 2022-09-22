@@ -16,7 +16,7 @@ class EquilibriumModel:
     def __init__(self, network):
         self.structure = EquilibriumStructure(network)
         self.loads = np.asarray(list(network.nodes_loads()), dtype=np.float64)
-        self.xyz0 = np.asarray(list(network.nodes_coordinates()), dtype=np.float64)
+        self.xyz_fixed = np.asarray([network.node_coordinates(node) for node in network.nodes_fixed()], dtype=np.float64)
 
     def _edges_vectors(self, xyz):
         connectivity = self.structure.connectivity
@@ -33,12 +33,12 @@ class EquilibriumModel:
         connectivity = self.structure.connectivity
         return self.loads - np.transpose(connectivity) @ np.diag(q) @ vectors
 
-    def _nodes_positions(self, q):
+    def _nodes_free_positions(self, q):
         # convenience shorthands
         free = self.structure.free_nodes
         fixed = self.structure.fixed_nodes
         loads = self.loads
-        xyz = self.xyz0
+        xyz_fixed = self.xyz_fixed
 
         # Immutable stuff
         c_matrix = self.structure.connectivity
@@ -51,23 +51,21 @@ class EquilibriumModel:
 
         # solve equilibrium after solving a linear system of equations
         A = c_free_t @ q_matrix @ c_free
-        b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz[fixed, :]
-        xyz_free = np.linalg.solve(A, b)
+        b = loads[free, :] - c_free_t @ q_matrix @ c_fixed @ xyz_fixed
+        return np.linalg.solve(A, b)
 
-        # syntactic sugar
-        xyz_fixed = xyz[fixed, :]
-
+    def _nodes_positions(self, xyz_free):
         # NOTE: free fixed indices sorted by enumeration
+        xyz_fixed = self.xyz_fixed
         indices = self.structure.freefixed_nodes
-
-        # NOTE: concatenation is a workaround specific to autograd
-        return np.concatenate((xyz_free, xyz_fixed))[indices]
+        return np.concatenate((xyz_free, xyz_fixed))[indices, :]
 
     def __call__(self, q):
         """
         Compute an equilibrium state using the force density method.
         """
-        xyz_eq = self._nodes_positions(q)
+        xyz = self._nodes_free_positions(q)
+        xyz_eq = self._nodes_positions(xyz)
         vectors = self._edges_vectors(xyz_eq)
         residuals = self._nodes_residuals(q, vectors)
         lengths = self._edges_lengths(vectors)
