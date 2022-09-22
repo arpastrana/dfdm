@@ -52,8 +52,18 @@ class Optimizer():
         # loss matters
         loss = partial(loss, model=model)
 
+        # warm up loss
+        start_time = time()
+        loss(q)
+        print(f"Loss warmup time: {round(time() - start_time, 4)} seconds")
+
         # gradient of the loss function
         grad_loss = grad(loss)  # grad w.r.t. first function argument
+
+        # warm up grad loss
+        start_time = time()
+        grad_loss(q)
+        print(f"Gradient warmup time: {round(time() - start_time, 4)} seconds")
 
         # TODO: parameter bounds
         # bounds makes a re-index from one count system to the other
