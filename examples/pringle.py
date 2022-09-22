@@ -45,7 +45,7 @@ length_vault = 6.0
 width_vault = 3.0
 
 num_u = 10
-num_v = 5  # only odd numbers
+num_v = 9  # only odd numbers
 
 q_init = -0.25
 pz = -0.1

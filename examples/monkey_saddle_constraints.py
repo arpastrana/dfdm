@@ -180,7 +180,7 @@ for key in network0.nodes_supports():
 # Define constraints
 # ==========================================================================
 
-constraints = None
+constraints = []
 if add_constraints:
     constraints = [NetworkEdgesLengthConstraint(bound_low=length_min, bound_up=length_max)]
 

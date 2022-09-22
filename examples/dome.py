@@ -77,7 +77,7 @@ pz = -0.1  # z component of the applied load
 
 # optimization
 optimizer = BFGS
-maxiter = 10000
+maxiter = 1000
 tol = 1e-3  # 1e-6 for best results at the cost of a considerable speed decrease
 
 # parameter bounds
@@ -93,8 +93,8 @@ angle_base = 20.0  # angle constraint, lower bound
 angle_top = 30.0  # angle constraint, upper bound
 
 # io
-export = True
-record = True
+export = False
+record = False
 
 HERE = os.path.dirname(__file__)
 
@@ -182,7 +182,7 @@ if export:
 goals = []
 
 # edge length goal
-for cross_ring in edges_cross_rings[:]:
+for cross_ring in edges_cross_rings:
     for edge in cross_ring:
         goal = EdgeLengthGoal(edge, target=length_target, weight=1.)
         goals.append(goal)
@@ -216,6 +216,25 @@ for i, cross_ring in enumerate(edges_cross_rings):
 # ==========================================================================
 
 loss = Loss(SquaredError(goals=goals))
+
+# ==========================================================================
+# Define loss function with goals
+# ==========================================================================
+
+# from autograd import grad
+# import autograd.numpy as np
+
+# model = EquilibriumModel(network)
+# q = np.asarray(network.edges_forcedensities())
+# gradient = grad(loss)(q, model)
+
+# print("singles")
+# print("loss", loss(q, model))
+# print("gradient shape", gradient.shape)
+# print("gradient norm", np.linalg.norm(gradient))
+# print("gradient max", np.amax(gradient))
+
+# raise
 
 # ==========================================================================
 # Form-finding sweep
@@ -334,7 +353,7 @@ networks = list(networks.values())
 for i, network in enumerate(networks):
     if i == (len(networks) - 1):
         continue
-    viewer.add(network, show_points=True, linewidth=1.0, color=Color.grey().darkened(i * 10))
+    viewer.add(network, show_points=False, linewidth=1.0, color=Color.grey().darkened(i * 10))
 
 network0 = networks[0]
 if len(networks) > 1:
@@ -372,10 +391,6 @@ viewer.add(c_network,
 for node in c_network.nodes():
 
     pt = c_network.node_coordinates(node)
-
-    # draw lines betwen subject and target nodes
-    # target_pt = network0.node_coordinates(node)
-    # viewer.add(Line(target_pt, pt), linewidth=1.0, color=Color.grey().lightened())
 
     # draw residual forces
     residual = c_network.node_residual(node)
