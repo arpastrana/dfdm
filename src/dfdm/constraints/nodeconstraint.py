@@ -24,41 +24,47 @@ class NodeConstraint(Constraint):
         return self._key
 
 
-class NodeNormalAngleConstraint(Constraint):
+class NodeNormalAngleConstraint(NodeConstraint):
     """
     Constraints the angle between the normal of the network at a node and a reference vector.
     """
-    def __init__(self, key, vector, bound_low, bound_up):
-        super().__init__(key=key, bound_low=bound_low, bound_up=bound_up)
+    def __init__(self, key, polygon, vector, bound_low, bound_up):
+        super().__init__(key, bound_low, bound_up)
+        self.polygon = polygon
         self.vector_other = np.asarray(vector)
 
     def constraint(self, eqstate, model):
         """
-        Returns the angle between the the node normal and the reference vector.
+        Returns the angle in radians between the the node normal and the reference vector.
         """
         normal = self._node_normal(eqstate, model)
-        return self._angle_vectors_numpy(normal, self.vector_other, deg=True)
+        return self._angle_vectors(normal, self.vector_other)
 
     def _node_normal(self, eqstate, model):
         """
-        Computes the vector normal at a node in a network.
+        Computes the unitized vector normal at a node in a network.
         """
-        index_node = self.index(model)
-        index_others = model.structure.adjacency[index_node, :]
-        xyz_node = eqstate.xyz[index_node, :]
-        xyz_others = eqstate.xyz[index_others, :]
-        vectors = xyz_node - xyz_others
-        length_vectors = np.linalg.norm(vectors, axis=1)
-        vectors = vectors / length_vectors
-        return np.sum(vectors)
-
+        indices_polygon = [model.structure.node_index[nbr] for nbr in self.polygon]
+        p = eqstate.xyz[indices_polygon, :]
+        return self._normal_polygon(p)
+        
     @staticmethod
-    def _angle_vectors_numpy(u, v, deg=False):
+    def _angle_vectors(u, v):
         """
         Compute the smallest angle between two vectors.
         """
         a = np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
         a = max(min(a, 1), -1)
-        if deg:
-            return np.degrees(np.arccos(a))
         return np.arccos(a)
+
+    @staticmethod
+    def _normal_polygon(p):
+        """
+        Compute the normal of a polygon defined by a sequence of points (at least two points).
+        Polygon is numpy array #points x 3.
+        """
+        o = np.mean(p, axis=0)
+        op = p - o
+        ns = np.array([np.cross(op[i - 1], op[i]) * 0.5 for i in range(len(op))])
+        n = np.sum(ns, axis=0)
+        return n / np.linalg.norm(n)
