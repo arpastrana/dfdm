@@ -56,6 +56,12 @@ class FDNetwork(Network):
         """
         return self.nodes_where({"is_support": False})
 
+    def nodes_fixed(self):
+        """
+        The keys of the nodes where there is a support assigned.
+        """
+        return self.nodes_where({"is_support": True})
+
     def edge_forcedensity(self, key, q=None):
         """
         Gets or sets the force density on a single edge.
