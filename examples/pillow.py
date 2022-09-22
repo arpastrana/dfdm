@@ -4,7 +4,7 @@ Solve a constrained force density problem using gradient-based optimization.
 
 import os
 import numpy as np
-from random import random
+from random import random, choice
 from math import fabs
 from math import radians
 from math import pi, cos, sin, atan
@@ -93,16 +93,16 @@ qmax = None
 add_horizontal_projection_goal = True
 
 # constraint normal angle
-add_node_normal_angle_constraint = True
+add_node_normal_angle_constraint = False
 angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in constraint
-angle_min = pi/2.0 - atan(0.65)
+angle_min = pi/2.0 - atan(0.75)
 angle_max = pi/2.0
 print(angle_min, angle_max)
 
 # constraint length
-add_edge_length_constraint = False
-ratio_length_min = 0.8
-ratio_length_max = 1.2
+add_edge_length_constraint = True
+ratio_length_min = 1.0
+ratio_length_max = 3.0
 
 # constraint force
 add_edge_force_constraint = True
@@ -149,8 +149,8 @@ for key in network.nodes():
 
 # set initial q to all edges
 for edge in network.edges():
-    network.edge_forcedensity(edge, q0)
-    # network.edge_forcedensity(edge, q0 * random())
+    # network.edge_forcedensity(edge, q0)
+    network.edge_forcedensity(edge, q0 + 0.1 * random())
 
 networks = {'input': network}
 
