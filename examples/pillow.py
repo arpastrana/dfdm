@@ -31,11 +31,11 @@ from compas.datastructures import Mesh
 from compas.datastructures import mesh_weld
 from compas.utilities import pairwise
 
-# from compas_singular.datastructures import CoarseQuadMesh
-from compas_quad.datastructures import CoarseQuadMesh
+from compas_singular.datastructures import CoarseQuadMesh
+# from compas_quad.datastructures import CoarseQuadMesh
 
 # visualization
-# from compas_view2.app import App
+from compas_view2.app import App
 
 # static equilibrium
 from dfdm.datastructures import FDNetwork
@@ -105,6 +105,13 @@ weight_load_path = 0.01
 # goal edge length
 add_edge_length_goal = False
 weight_edge_length = 1.0
+
+# constraint normal angle
+add_node_normal_angle_constraint = False
+angle_vector = [0.0, 0.0, 1.0]  # reference vector to compute angle to in constraint
+angle_min = pi/2.0 - atan(0.75)
+angle_max = pi/2.0
+print(angle_min, angle_max)
 
 # constraint length
 add_edge_length_constraint = True
@@ -252,21 +259,20 @@ if add_curvature_constraint:
 # Form finding
 # ==========================================================================
 
-print('')
-networks['uncstr_opt'] = constrained_fdm(network,
-                          optimizer=optimizer(),
-                          bounds=(qmin, qmax),
-                          loss=loss,
-                          constraints=None,
-                          maxiter=maxiter)
+networks['free'] = fdm(network)
 
-print('')
+networks['uncstr_opt'] = constrained_fdm(network,
+                                         optimizer=optimizer(),
+                                         bounds=(qmin, qmax),
+                                         loss=loss,
+                                         maxiter=maxiter)
+
 networks['cstr_opt'] = constrained_fdm(network,
-                          optimizer=optimizer(),
-                          bounds=(qmin, qmax),
-                          loss=loss,
-                          constraints=constraints,
-                          maxiter=maxiter)
+                                       optimizer=optimizer(),
+                                       bounds=(qmin, qmax),
+                                       loss=loss,
+                                       constraints=constraints,
+                                       maxiter=maxiter)
 
 # ==========================================================================
 # Print and export results
@@ -285,6 +291,13 @@ for network_name, network in networks.items():
 
     data = {'Force densities': q, 'Forces': f, 'Lengths': l}
 
+    if constraint_normals:
+        model = EquilibriumModel(network)
+        q = np.array(network.edges_forcedensities())
+        eqstate = model(q)
+        a = [constraint.constraint(eqstate, model) for constraint in constraint_normals]
+        data['Normal angles'] = a
+
     for name, values in data.items():
         minv = round(min(values), 3)
         maxv = round(max(values), 3)
@@ -296,3 +309,73 @@ for network_name, network in networks.items():
         FILE_OUT = os.path.join(HERE, "../data/json/{}_{}.json".format(model_name, network_name))
         network.to_json(FILE_OUT)
         print("Design {} exported to".format(network_name), FILE_OUT)
+
+
+viewer = App(width=1600, height=900, show_grid=False)
+
+# add all networks except the last one
+networks = list(networks.values())
+for i, network in enumerate(networks):
+    if i == (len(networks) - 1):
+        continue
+    viewer.add(network, show_points=False, linewidth=1.0, color=Color.grey().darkened(i * 10))
+
+network0 = networks[0]
+if len(networks) > 1:
+    c_network = networks[-1]  # last network is colored
+else:
+    c_network = networks[0]
+
+# plot the last network
+# edges color map
+cmap = ColorMap.from_mpl("viridis")
+
+fds = [fabs(c_network.edge_forcedensity(edge)) for edge in c_network.edges()]
+colors = {}
+for edge in c_network.edges():
+    fd = fabs(c_network.edge_forcedensity(edge))
+    try:
+        ratio = (fd - min(fds)) / (max(fds) - min(fds))
+    except ZeroDivisionError:
+        ratio = 1.
+    colors[edge] = cmap(ratio)
+
+# optimized network
+viewer.add(c_network,
+           show_vertices=True,
+           pointsize=20.0,
+           show_edges=True,
+           linecolors=colors,
+           linewidth=5.0)
+
+for node in c_network.nodes():
+
+    pt = c_network.node_coordinates(node)
+
+    # draw residual forces
+    residual = c_network.node_residual(node)
+
+    if length_vector(residual) < 0.001:
+        continue
+
+    # print(node, residual, length_vector(residual))
+    residual_line = Line(pt, add_vectors(pt, residual))
+    viewer.add(residual_line,
+               linewidth=4.0,
+               color=Color.pink())  # Color.purple()
+
+# draw applied loads
+for node in c_network.nodes():
+    pt = c_network.node_coordinates(node)
+    load = c_network.node_load(node)
+    viewer.add(Line(pt, add_vectors(pt, load)),
+               linewidth=4.0,
+               color=Color.green().darkened())
+
+# draw supports
+for node in c_network.nodes_supports():
+    x, y, z = c_network.node_coordinates(node)
+    viewer.add(Point(x, y, z), color=Color.green(), size=30)
+
+# show le crème
+viewer.show()

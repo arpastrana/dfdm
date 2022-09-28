@@ -218,25 +218,6 @@ for i, cross_ring in enumerate(edges_cross_rings):
 loss = Loss(SquaredError(goals=goals))
 
 # ==========================================================================
-# Define loss function with goals
-# ==========================================================================
-
-# from autograd import grad
-# import autograd.numpy as np
-
-# model = EquilibriumModel(network)
-# q = np.asarray(network.edges_forcedensities())
-# gradient = grad(loss)(q, model)
-
-# print("singles")
-# print("loss", loss(q, model))
-# print("gradient shape", gradient.shape)
-# print("gradient norm", np.linalg.norm(gradient))
-# print("gradient max", np.amax(gradient))
-
-# raise
-
-# ==========================================================================
 # Form-finding sweep
 # ==========================================================================
 
