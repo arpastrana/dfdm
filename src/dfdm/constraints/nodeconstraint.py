@@ -9,7 +9,6 @@ class NodeConstraint(Constraint):
     """
     Base class for all constraints that pertain to a node in a network.
     """
-
     def __init__(self, key, bound_low, bound_up, **kwargs):
         super().__init__(bound_low=bound_low, bound_up=bound_up)
         self._key = key
@@ -31,7 +30,6 @@ class NodeNormalAngleConstraint(NodeConstraint):
     """
     Constraints the angle between the normal of the network at a node and a reference vector.
     """
-
     def __init__(self, key, polygon, vector, bound_low, bound_up):
         super().__init__(key, bound_low, bound_up)
         self.polygon = polygon
@@ -79,7 +77,6 @@ class NodeCurvatureConstraint(NodeConstraint):
     """
     Constraints the (discrete) curvature of a node based on its surrounding polygon of neighboring nodes.
     """
-
     def __init__(self, key, polygon, bound_low, bound_up):
         super().__init__(key, bound_low, bound_up)
         self.polygon = polygon
